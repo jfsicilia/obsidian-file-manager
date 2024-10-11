@@ -1,0 +1,9 @@
+{
+	"id": "file-manager",
+	"name": "File Manager",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Adds missing features to the file explorer.",
+	"author": "Juan Sicilia",
+	"isDesktopOnly": true
+}
