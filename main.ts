@@ -252,7 +252,7 @@ export default class FileManagerPlugin extends Plugin {
 		});
 		this.addCommand({
 			id: "toggle-select",
-			name: "Toggles selection of the focused or active file/folder",
+			name: "Toggle selection of the focused or active file/folder",
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(
 					checking,
