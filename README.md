@@ -1,12 +1,12 @@
 # File Manager Plugin for Obsidian
 
-This plugin adds advanced file management features to the Obsidian file explorer.
+This plugin enhances the Obsidian File Explorer by adding essential file management features. It introduces several new commands when the `File Explorer` panel is focused, allowing users to bind hotkeys to these operations. The goal is to enable complete file management within Obsidian using only the keyboard.
 
 ## Features
 
--   **Create subfolder**: Create a subfolders of current folder.
+-   **Create subfolder**: Create a subfolder of current folder.
 -   **Create folder**: Create sibling folder.
--   **Duplicate**: Duplicates file/folder.
+-   **Duplicate**: Duplicate file/folder.
 -   **Move**: Move selected files/folders to existing location.
 -   **Copy**: Copy selected files/folders to existing location.
 -   **Copy, Cut and Paste**: Copy or cut selected files/folders to clipboard and paste from it.
@@ -18,17 +18,15 @@ This plugin adds advanced file management features to the Obsidian file explorer
 
 ### Conflict Resolution
 
-When a file conflict occurs, choose between a dialog asking for conflict resolution
-or a predefined method:
+When a file conflict arises, you can either be prompted to choose a resolution or apply a predefined method:
 
--   **Overwrite**: Overwrite the existing file/folder.
--   **Skip**: Skip the conflicting file/folder.
--   **Keep**: Keep both files by renaming the new one.
+-   **Overwrite**: Replace the existing file/folder.
+-   **Skip**: Ignore the conflicting file/folder.
+-   **Keep**: Retain both files by renaming the new one.
 
 ## Usage
 
-When you have the focus in the `file explorer` panel, the following commands
-will be available.
+When you have the focus in the `File Explorer` panel, the following commands will be available.
 
 ### Commands
 
@@ -50,13 +48,13 @@ will be available.
 
 Select `File Manager` from the community available plugins.
 
-### Configuration
+## Configuration
 
 There's a settings tab for the plugin to customize behaviour.
 
 ## Development
 
-1. Clone this repository into the `.obsidian/plugins` folder of a obsidian Vault.
+1. Clone this repository into the `.obsidian/plugins` folder of an obsidian Vault.
 2. Ensure your NodeJS version is at least v16 (`node --version`).
 3. Run `npm install` to install dependencies.
 4. Run `npm run dev` to start compilation in watch mode.
