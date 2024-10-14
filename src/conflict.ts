@@ -40,27 +40,32 @@ export const FileConflictOptionDescription: Record<
 export interface FileConflictResolutionProvider {
 	getFileConflictResolutionMethod(
 		path: string
-	): Promise<FileConflictResolution>;
+	): Promise<[FileConflictResolution, boolean]>;
 }
 
 /**
  * Modal to prompt the user to choose the file conflict resolution method.
  */
 export class ConflictModal extends Modal {
-	private resolvePromise: (value: FileConflictResolution) => void;
+	private resolvePromise: (value: [FileConflictResolution, boolean]) => void;
+
+	// Stores the user's choice to apply the same resolution to all conflicts.
+	private applyToAll: boolean = false;
 
 	constructor(app: App, file: string) {
 		super(app);
 		this.setTitle(`There is a conflict with "${file}"`);
 
-		const setting = new Setting(this.contentEl);
+		let setting = new Setting(this.contentEl);
+		setting.setName("Do the same for all conflicts?");
 		setting.addToggle((toggle) => {
-			toggle.setValue(false);
+			toggle.setValue(this.applyToAll);
 			toggle.onChange((value) => {
-				console.log(value);
+				this.applyToAll = value;
 			});
 		});
 
+		setting = new Setting(this.contentEl);
 		const resolutions: FileConflictResolution[] = Object.values(
 			FileConflictResolution
 		) as FileConflictResolution[];
@@ -72,7 +77,7 @@ export class ConflictModal extends Modal {
 					)
 					.setCta()
 					.onClick(() => {
-						this.resolvePromise(resolution);
+						this.resolvePromise([resolution, this.applyToAll]);
 						this.close();
 					})
 			);
@@ -82,10 +87,10 @@ export class ConflictModal extends Modal {
 	onClose() {
 		// On close, resolve the promise with the SKIP resolution method.
 		if (this.resolvePromise)
-			this.resolvePromise(FileConflictResolution.SKIP);
+			this.resolvePromise([FileConflictResolution.SKIP, this.applyToAll]);
 	}
 
-	openAndWait(): Promise<FileConflictResolution> {
+	openAndWait(): Promise<[FileConflictResolution, boolean]> {
 		return new Promise((resolve) => {
 			this.resolvePromise = resolve;
 			this.open();

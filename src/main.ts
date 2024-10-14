@@ -330,11 +330,11 @@ export default class FileManagerPlugin
 	 */
 	async getFileConflictResolutionMethod(
 		path: string
-	): Promise<FileConflictResolution> {
+	): Promise<[FileConflictResolution, boolean]> {
 		const option = this.settings.conflictResolutionMethod;
 		if (option === FileConflictOption.PROMPT)
 			return await new ConflictModal(this.app, path).openAndWait();
-		return option as FileConflictResolution;
+		return [option as FileConflictResolution, true];
 	}
 
 	async loadSettings() {

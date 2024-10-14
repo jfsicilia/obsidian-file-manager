@@ -311,26 +311,28 @@ export class FileManager {
 		dest: string,
 		operation: (src: string, dest: string) => Promise<void>,
 		resolve: FileConflictResolution | null = null
-	): Promise<FileConflictResolution | null> {
+	): Promise<[FileConflictResolution | null, boolean]> {
+		let applyToAll = true;
 		// If destination doesn't exist, perform the operation (no conflict).
 		if (!(await this.vault.exists(dest))) {
 			await operation(src, dest);
-			return null;
+			return [null, applyToAll];
 		}
 
 		// Destination file/folder already exists. Handle conflict.
 		if (!resolve)
-			resolve = await this.plugin.getFileConflictResolutionMethod(dest);
+			[resolve, applyToAll] =
+				await this.plugin.getFileConflictResolutionMethod(dest);
 		if (resolve === FileConflictResolution.OVERWRITE) {
 			await this.vault.delete(fileExplorer.fileItems[dest].file);
 			await operation(src, dest);
-			return FileConflictResolution.OVERWRITE;
+			return [FileConflictResolution.OVERWRITE, applyToAll];
 		}
 		if (resolve === FileConflictResolution.KEEP) {
 			await operation(src, genNonExistingPath(fileExplorer, dest));
-			return FileConflictResolution.KEEP;
+			return [FileConflictResolution.KEEP, applyToAll];
 		}
-		return FileConflictResolution.SKIP;
+		return [FileConflictResolution.SKIP, applyToAll];
 	}
 
 	/**
@@ -462,7 +464,7 @@ export class FileManager {
 		src: string,
 		dest: string,
 		resolve: FileConflictResolution | null = null
-	): Promise<FileConflictResolution | null> {
+	): Promise<[FileConflictResolution | null, boolean]> {
 		return this._conflictSolver(
 			fileExplorer,
 			src,
@@ -482,27 +484,25 @@ export class FileManager {
 	 */
 	async moveFiles(
 		path: string,
-		ancestorToNameMap: Map<string, string> | null = null,
+		pathToName: Map<string, string> | null = null,
 		resolve: FileConflictResolution | null = null
 	): Promise<Map<string, FileConflictResolution | null>> {
 		const stats: Map<string, FileConflictResolution | null> = new Map();
 		const fileExplorer = this.getFileExplorer();
 		if (!fileExplorer) return stats;
 
-		if (!ancestorToNameMap)
-			ancestorToNameMap = this.getSelectedAncestorsPathToNameMap();
+		if (!pathToName) pathToName = this.getSelectedAncestorsPathToNameMap();
 
-		for (const [src, dest] of ancestorToNameMap) {
+		for (const [src, dest] of pathToName) {
 			const newDest = `${path}/${dest}`;
-			stats.set(
+			const [resolution, applyToAll] = await this._moveFileOrFolder(
+				fileExplorer,
+				src,
 				newDest,
-				await this._moveFileOrFolder(
-					fileExplorer,
-					src,
-					newDest,
-					resolve
-				)
+				resolve
 			);
+			stats.set(newDest, resolution);
+			if (applyToAll) resolve = resolution;
 		}
 		return stats;
 	}
@@ -517,7 +517,7 @@ export class FileManager {
 		src: string,
 		dest: string,
 		resolve: FileConflictResolution | null = null
-	): Promise<FileConflictResolution | null> {
+	): Promise<[FileConflictResolution | null, boolean]> {
 		return this._conflictSolver(
 			fileExplorer,
 			src,
@@ -569,7 +569,7 @@ export class FileManager {
 	 */
 	async copyFiles(
 		path: string,
-		ancestorToNameMap: Map<string, string> | null = null,
+		pathToName: Map<string, string> | null = null,
 		resolve: FileConflictResolution | null = null
 	): Promise<Map<string, FileConflictResolution | null>> {
 		const stats: Map<string, FileConflictResolution | null> = new Map();
@@ -577,20 +577,18 @@ export class FileManager {
 		const fileExplorer = this.getFileExplorer();
 		if (!fileExplorer) return stats;
 
-		if (!ancestorToNameMap)
-			ancestorToNameMap = this.getSelectedAncestorsPathToNameMap();
+		if (!pathToName) pathToName = this.getSelectedAncestorsPathToNameMap();
 
-		for (const [src, dest] of ancestorToNameMap) {
+		for (const [src, dest] of pathToName) {
 			const newDest = `${path}/${dest}`;
-			stats.set(
+			const [resolution, applyToAll] = await this._copyFileOrFolder(
+				fileExplorer,
+				src,
 				newDest,
-				await this._copyFileOrFolder(
-					fileExplorer,
-					src,
-					newDest,
-					resolve
-				)
+				resolve
 			);
+			stats.set(newDest, resolution);
+			if (applyToAll) resolve = resolution;
 		}
 		return stats;
 	}
