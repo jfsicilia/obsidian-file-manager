@@ -6,6 +6,7 @@ This plugin enhances the Obsidian File Explorer by adding essential file managem
 
 -   **Create subfolder**: Create a subfolder of current folder.
 -   **Create folder**: Create sibling folder.
+-   **Create note**: Create note in current folder.
 -   **Duplicate**: Duplicate file/folder.
 -   **Move**: Move selected files/folders to existing location.
 -   **Copy**: Copy selected files/folders to existing location.
@@ -26,12 +27,13 @@ When a file conflict arises, you can either be prompted to choose a resolution o
 
 ## Usage
 
-When you have the focus in the `File Explorer` panel, the following commands will be available.
+> **IMPORTANT**: Only when you have the focus in the `File Explorer` panel, the following commands will be available.
 
 ### Commands
 
 -   `Create a subfolder within the focused or active file/folder`.
 -   `Create a folder as sibling of the focused or active file/folder`.
+-   `Create a note within the focused or active folder`.
 -   `Duplicate focused or active file/folder`,
 -   `Copy selected files/folders to clipboard`,
 -   `Paste files/folders from clipboard to selected folder`,
@@ -52,12 +54,15 @@ Select `File Manager` from the community available plugins.
 
 There's a settings tab for the plugin to customize behaviour.
 
+![Settings](./assets/settings.png)
+
 ## Development
 
 1. Clone this repository into the `.obsidian/plugins` folder of an obsidian Vault.
 2. Ensure your NodeJS version is at least v16 (`node --version`).
 3. Run `npm install` to install dependencies.
 4. Run `npm run dev` to start compilation in watch mode.
+5. In obsidian settings turn on `File Manager` plugin.
 
 ## Support
 
@@ -66,3 +71,10 @@ For any issues or feature requests, please open an issue on the GitHub repositor
 ## License
 
 This plugin is licensed under the MIT License.
+
+## Roadmap
+
+-   Implement **merge** for folders copy/move.
+-   After copying/moving files, autoselect files on destination.
+-   Better UI feedback when copying or cutting files to clipboard.
+-   Better information for files copied/moved.
