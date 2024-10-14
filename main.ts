@@ -3,63 +3,69 @@ import {
 	Modal,
 	Notice,
 	Plugin,
-	PluginSettingTab,
-	Setting,
 	TFolder,
 	FuzzySuggestModal,
 } from "obsidian";
 
-// import { FileExplorer } from "./obsidian-internals";
+import { FileManager, DIR_SEP } from "file_manager";
 
-import { FileManager, FileConflictResolution, DIR_SEP } from "./file_manager";
+import {
+	FileConflictOption,
+	FileConflictResolution,
+	FileConflictResolutionProvider,
+	ConflictModal,
+} from "conflict";
 
-interface FileManagerSettings {
-	mySetting: string;
-}
+import {
+	FileManagerSettingsProvider,
+	FileManagerSettingTab,
+	FileManagerSettings,
+	DEFAULT_SETTINGS,
+} from "settings";
 
-const DEFAULT_SETTINGS: FileManagerSettings = {
-	mySetting: "default",
-};
-
+// Used to keep track of whether the user is copying or moving files
 enum FileOperation {
 	COPY = "Copy",
 	MOVE = "Move",
 }
 
-const statsToString = (
+/**
+ * Returns the stats of files opearations in a human-readable format. For example:
+ * [DONE] file1.md\n, [OVERWRITE] file2.md\n, [SKIP] file3.md\n.
+ */
+function statsToString(
 	stats: Map<string, FileConflictResolution | null>
-): string => {
+): string {
 	let str = "";
 	stats.forEach((resolve, path) => {
 		const name = path.split(DIR_SEP).pop();
-		switch (resolve) {
-			case FileConflictResolution.OVERWRITE:
-				str += `[OVERWRITTEN] ${name}\n`;
-				return;
-			case FileConflictResolution.SKIP:
-				str += `[SKIPPED] ${name}\n`;
-				return;
-			case FileConflictResolution.KEEP:
-				str += `[KEPT] ${name}\n`;
-				return;
-			default:
-				str += `[DONE] ${name}\n`;
-				return;
-		}
+		str += resolve === null ? `[DONE] ${name}\n` : `[${resolve}] ${name}\n`;
 	});
 	return str;
-};
+}
 
-export default class FileManagerPlugin extends Plugin {
+/**
+ * The main plugin class that provides file manager commands.
+ */
+export default class FileManagerPlugin
+	extends Plugin
+	implements FileManagerSettingsProvider, FileConflictResolutionProvider
+{
 	settings: FileManagerSettings;
 
+	// The file manager instance that provides file operations.
 	private fm: FileManager = new FileManager(this);
 
-	private selectedToDestMap: Map<string, string> | null;
+	// We keep track of the selected files/folders for a cut/copy operation.
+	private clipboard: Map<string, string> | null;
 	// We keep track of the file operation so we can use it when pasting files
 	// See copy-files-to-clipboard and cut-files-to-clipboard
 	private fileOperation: FileOperation = FileOperation.COPY;
 
+	/**
+	 * Helper function to check (checkFunction) if a command (operation) can
+	 * run.
+	 */
 	_checkCallback(
 		checking: boolean,
 		checkFunction: () => boolean,
@@ -71,6 +77,10 @@ export default class FileManagerPlugin extends Plugin {
 		return true;
 	}
 
+	/**
+	 * Helper function to check (checkFunction) if a command (operation) can
+	 * run asynchronously.
+	 */
 	_checkAsyncCallback(
 		checking: boolean,
 		checkFunction: () => boolean,
@@ -84,6 +94,10 @@ export default class FileManagerPlugin extends Plugin {
 		return true;
 	}
 
+	/**
+	 * Helper function that checks if there is a file explorer with an active
+	 * file or folder, if so a command (operation) can run.
+	 */
 	isActiveFileOrFolderCallback(
 		checking: boolean,
 		operation: (...args: any[]) => any,
@@ -93,6 +107,10 @@ export default class FileManagerPlugin extends Plugin {
 		return this._checkCallback(checking, func, operation, ...args);
 	}
 
+	/**
+	 * Helper function that checks if there is a file explorer with an active
+	 * file or folder, if so a command (operation) can run asynchronously
+	 */
 	isActiveFileOrFolderAsyncCallback(
 		checking: boolean,
 		operation: (...args: any[]) => Promise<any>,
@@ -102,6 +120,10 @@ export default class FileManagerPlugin extends Plugin {
 		return this._checkAsyncCallback(checking, func, operation, ...args);
 	}
 
+	/**
+	 * Helper function that checks if there is a file explorer active,
+	 * if so a command (operation) can run.
+	 */
 	isFileExplorerActiveCallback(
 		checking: boolean,
 		operation: (...args: any[]) => any,
@@ -111,6 +133,10 @@ export default class FileManagerPlugin extends Plugin {
 		return this._checkCallback(checking, func, operation, ...args);
 	}
 
+	/**
+	 * Helper function that checks if there is a file explorer active,
+	 * if so a command (operation) can run asynchronously.
+	 */
 	isFileExplorerActiveAsyncCallback(
 		checking: boolean,
 		operation: (...args: any[]) => Promise<any>,
@@ -121,6 +147,7 @@ export default class FileManagerPlugin extends Plugin {
 	}
 
 	async onload() {
+		this.settings = DEFAULT_SETTINGS;
 		await this.loadSettings();
 
 		this.addCommand({
@@ -142,6 +169,15 @@ export default class FileManagerPlugin extends Plugin {
 				),
 		});
 		this.addCommand({
+			id: "create-note",
+			name: "Create a note within the focused or active folder",
+			checkCallback: (checking: boolean) =>
+				this.isActiveFileOrFolderAsyncCallback(
+					checking,
+					this.fm.createNote.bind(this.fm)
+				),
+		});
+		this.addCommand({
 			id: "duplicate-file",
 			name: "Duplicate focused or active file/folder",
 			checkCallback: (checking: boolean) =>
@@ -155,9 +191,10 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Copy selected files/folders to clipboard",
 			checkCallback: (checking: boolean) =>
 				this.isActiveFileOrFolderCallback(checking, () => {
-					this.selectedToDestMap =
+					this.clipboard =
 						this.fm.getSelectedAncestorsPathToNameMap();
 					this.fileOperation = FileOperation.COPY;
+					new Notice("Files copied to clipboard");
 				}),
 		});
 		this.addCommand({
@@ -165,9 +202,10 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Cut selected files/folders to clipboard",
 			checkCallback: (checking: boolean) =>
 				this.isActiveFileOrFolderCallback(checking, () => {
-					this.selectedToDestMap =
+					this.clipboard =
 						this.fm.getSelectedAncestorsPathToNameMap();
 					this.fileOperation = FileOperation.MOVE;
+					new Notice("Files cut to clipboard");
 				}),
 		});
 		this.addCommand({
@@ -175,20 +213,17 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Paste files/folders from clipboard to selected folder",
 			checkCallback: (checking: boolean) =>
 				this.isActiveFileOrFolderAsyncCallback(checking, async () => {
-					if (this.selectedToDestMap) {
-						const resolveFunction =
-							this.showConflictModalAndWait.bind(this);
+					if (this.clipboard) {
 						const operation =
 							this.fileOperation === FileOperation.COPY
 								? this.fm.copyFiles.bind(this.fm)
 								: this.fm.moveFiles.bind(this.fm);
 						const stats = await operation(
 							this.fm.getActiveFileOrFolder()!.path,
-							resolveFunction,
-							this.selectedToDestMap
+							this.clipboard
 						);
 						if (this.fileOperation === FileOperation.MOVE)
-							this.selectedToDestMap = null;
+							this.clipboard = null;
 						new Notice(
 							`${this.fileOperation} stats:\n\n` +
 								statsToString(stats)
@@ -205,12 +240,7 @@ export default class FileManagerPlugin extends Plugin {
 						this.app,
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
-							const resolveFunction =
-								this.showConflictModalAndWait.bind(this);
-							const stats = await this.fm.moveFiles(
-								path,
-								resolveFunction
-							);
+							const stats = await this.fm.moveFiles(path);
 							new Notice(
 								"Move stats:\n\n" + statsToString(stats)
 							);
@@ -218,7 +248,6 @@ export default class FileManagerPlugin extends Plugin {
 					).open();
 				}),
 		});
-
 		this.addCommand({
 			id: "copy-files",
 			name: "Copy selected files/folders to a new folder",
@@ -228,12 +257,7 @@ export default class FileManagerPlugin extends Plugin {
 						this.app,
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
-							const resolveFunction =
-								this.showConflictModalAndWait.bind(this);
-							const stats = await this.fm.copyFiles(
-								path,
-								resolveFunction
-							);
+							const stats = await this.fm.copyFiles(path);
 							new Notice(
 								"Copy stats:\n\n" + statsToString(stats)
 							);
@@ -247,26 +271,26 @@ export default class FileManagerPlugin extends Plugin {
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.selectAll(true);
-					new Notice(`Selected ${numSelected} items`);
+					new Notice(`${numSelected} items selected.`);
 				}),
 		});
 		this.addCommand({
 			id: "toggle-select",
 			name: "Toggle selection of the focused or active file/folder",
 			checkCallback: (checking: boolean) =>
-				this.isFileExplorerActiveCallback(
-					checking,
-					this.fm.toggleSelect.bind(this.fm)
-				),
+				this.isFileExplorerActiveCallback(checking, () => {
+					const numSelected = this.fm.toggleSelect();
+					new Notice(`${numSelected} items selected.`);
+				}),
 		});
 		this.addCommand({
 			id: "deselect-all",
 			name: "Clear selection",
 			checkCallback: (checking: boolean) =>
-				this.isFileExplorerActiveCallback(
-					checking,
-					this.fm.deselectAll.bind(this.fm)
-				),
+				this.isFileExplorerActiveCallback(checking, () => {
+					const numSelected = this.fm.deselectAll();
+					new Notice(`${numSelected} items deselected.`);
+				}),
 		});
 		this.addCommand({
 			id: "invert-selection",
@@ -274,7 +298,7 @@ export default class FileManagerPlugin extends Plugin {
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.invertSelection();
-					new Notice(`Selected ${numSelected} items`);
+					new Notice(`${numSelected} items selected.`);
 				}),
 		});
 		this.addCommand({
@@ -293,18 +317,20 @@ export default class FileManagerPlugin extends Plugin {
 
 	onunload() {}
 
-	async showConflictModalAndWait(
-		file: string
+	/**
+	 * Returns the conflict resolution method to use when a file conflict occurs.
+	 */
+	async getFileConflictResolutionMethod(
+		path: string
 	): Promise<FileConflictResolution> {
-		return await new ConflictModal(this.app, file).openAndWait();
+		const option = this.settings.conflictResolutionMethod;
+		if (option === FileConflictOption.PROMPT)
+			return await new ConflictModal(this.app, path).openAndWait();
+		return option as FileConflictResolution;
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
+		this.settings = { ...this.settings, ...(await this.loadData()) };
 	}
 
 	async saveSettings() {
@@ -312,87 +338,38 @@ export default class FileManagerPlugin extends Plugin {
 	}
 }
 
-class FileManagerSettingTab extends PluginSettingTab {
-	plugin: FileManagerPlugin;
-
-	constructor(app: App, plugin: FileManagerPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName("Setting #1")
-			.setDesc("It's a secret")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter your secret")
-					.setValue(this.plugin.settings.mySetting)
-					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
-						await this.plugin.saveSettings();
-					})
-			);
-	}
-}
+/**
+ * A modal that suggests folders to the user.
+ */
 class SuggestFolderModal extends FuzzySuggestModal<TFolder> {
 	constructor(
 		app: App,
+		// The folders to suggest to the user
 		private folders: TFolder[],
+		// The function to execute when the user selects a folder
 		private toDo: (path: string) => Promise<void>
 	) {
 		super(app);
 	}
 
+	/**
+	 * Returns the folders to suggest to the user.
+	 */
 	getItems(): TFolder[] {
 		return this.folders;
 	}
 
+	/**
+	 * Returns the text to display for a folder.
+	 */
 	getItemText(folder: TFolder): string {
 		return folder.path;
 	}
 
+	/**
+	 * Executes the function toDo when the user selects a folder.
+	 */
 	onChooseItem(folder: TFolder, evt: MouseEvent | KeyboardEvent) {
 		(async () => await this.toDo(folder.path))();
-	}
-}
-class ConflictModal extends Modal {
-	private resolvePromise: (value: FileConflictResolution) => void;
-
-	constructor(app: App, file: string) {
-		super(app);
-		this.setTitle(`There is a conflict with "${file}"`);
-
-		const setting = new Setting(this.contentEl);
-		const resolutions: FileConflictResolution[] = Object.values(
-			FileConflictResolution
-		) as FileConflictResolution[];
-		resolutions.forEach((resolution) => {
-			setting.addButton((btn) =>
-				btn
-					.setButtonText(resolution)
-					.setCta()
-					.onClick(() => {
-						this.resolvePromise(resolution);
-						this.close();
-					})
-			);
-		});
-	}
-
-	onClose() {
-		if (this.resolvePromise)
-			this.resolvePromise(FileConflictResolution.SKIP);
-	}
-
-	openAndWait(): Promise<FileConflictResolution> {
-		return new Promise((resolve) => {
-			this.resolvePromise = resolve;
-			this.open();
-		});
 	}
 }

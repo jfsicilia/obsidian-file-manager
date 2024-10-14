@@ -1,14 +1,4 @@
-// import { stat } from "fs";
-import {
-	Plugin,
-	App,
-	Vault,
-	View,
-	Workspace,
-	TAbstractFile,
-	TFile,
-	TFolder,
-} from "obsidian";
+import { Plugin, Vault, View, TAbstractFile, TFile, TFolder } from "obsidian";
 
 import {
 	FileExplorer,
@@ -17,7 +7,13 @@ import {
 	MockWorkspace,
 	MockTree,
 } from "obsidian-internals";
-import * as path from "path";
+
+import { FileManagerSettingsProvider } from "settings";
+
+import {
+	FileConflictResolutionProvider,
+	FileConflictResolution,
+} from "conflict";
 
 // ------------------------- Helper Functions -------------------------
 
@@ -146,30 +142,27 @@ function ancestorsPathsToName(paths: string[]): Map<string, string> {
 
 // ------------------------- File Manager -------------------------
 
-export enum FileConflictResolution {
-	SKIP = "Skip",
-	OVERWRITE = "Overwrite",
-	KEEP = "Keep",
-}
-
-// TODO: Error
-
 export const FILE_EXPLORER_TYPE = "file-explorer";
 
 export const DIR_SEP = "/";
 export const EXT_SEP = ".";
-export const COPY_SUFFIX = " - Copy";
-export const NEW_FOLDER = "/New Folder";
 
 /**
  * FileManager class provides a set of methods to interact with the file explorer.
  */
 export class FileManager {
+	private plugin: FileManagerSettingsProvider &
+		FileConflictResolutionProvider;
 	private app: MockApp;
 	private vault: MockVault;
 	private workspace: MockWorkspace;
 
-	constructor(plugin: Plugin) {
+	constructor(
+		plugin: Plugin &
+			FileManagerSettingsProvider &
+			FileConflictResolutionProvider
+	) {
+		this.plugin = plugin;
 		this.app = plugin.app as MockApp;
 		this.vault = plugin.app.vault as MockVault;
 		this.workspace = plugin.app.workspace as MockWorkspace;
@@ -195,7 +188,6 @@ export class FileManager {
 		if (!fileExplorer)
 			return { fileExplorer: null, activeFileOrFolder: null };
 
-		// TODO Check errors
 		const activeFileOrFolder =
 			fileExplorer.tree.focusedItem?.file ?? fileExplorer.activeDom?.file;
 		return { fileExplorer, activeFileOrFolder };
@@ -225,7 +217,6 @@ export class FileManager {
 			return activeFileOrFolder ? [activeFileOrFolder] : [];
 
 		// Return all selected files/folders as TAbstractFiles.
-		// TODO: Check if it works.
 		return Array.from(
 			Array.from(fileExplorer.tree.selectedDoms.values()).map(
 				(item) => item.file
@@ -319,17 +310,17 @@ export class FileManager {
 		src: string,
 		dest: string,
 		operation: (src: string, dest: string) => Promise<void>,
-		resolve:
-			| FileConflictResolution
-			| ((dest: string) => Promise<FileConflictResolution>)
+		resolve: FileConflictResolution | null = null
 	): Promise<FileConflictResolution | null> {
 		// If destination doesn't exist, perform the operation (no conflict).
 		if (!(await this.vault.exists(dest))) {
 			await operation(src, dest);
 			return null;
 		}
-		if (typeof resolve === "function") resolve = await resolve(dest);
+
 		// Destination file/folder already exists. Handle conflict.
+		if (!resolve)
+			resolve = await this.plugin.getFileConflictResolutionMethod(dest);
 		if (resolve === FileConflictResolution.OVERWRITE) {
 			await this.vault.delete(fileExplorer.fileItems[dest].file);
 			await operation(src, dest);
@@ -360,7 +351,10 @@ export class FileManager {
 		if (!path) return;
 
 		// The new folder name will be "New Folder[ n]" where [ n] is '' or a number.
-		const newPath = genNonExistingPath(fileExplorer, path + NEW_FOLDER);
+		const newPath = genNonExistingPath(
+			fileExplorer,
+			path + DIR_SEP + this.plugin.settings.newFolderName
+		);
 
 		// Create the new subfolder and set focus on it.
 		const newFolder = await this.vault.createFolder(newPath);
@@ -401,6 +395,28 @@ export class FileManager {
 	}
 
 	/**
+	 * Creates a new note in the currently focused or active folder.
+	 */
+	async createNote() {
+		const { fileExplorer, activeFileOrFolder } =
+			this.getFileExplorerAndActiveFileOrFolder();
+		if (!fileExplorer || !activeFileOrFolder) return;
+
+		const path =
+			activeFileOrFolder instanceof TFolder
+				? activeFileOrFolder.path
+				: activeFileOrFolder.parent?.path;
+		const newPath = genNonExistingPath(
+			fileExplorer,
+			path + DIR_SEP + this.plugin.settings.newNoteName
+		);
+
+		// Create empty note and set focus on it.
+		await this.vault.create(newPath, "");
+		fileExplorer.tree.setFocusedItem(fileExplorer.fileItems[newPath], true);
+	}
+
+	/**
 	 * Rename the focused or active file/folder in the file explorer.
 	 */
 	async renameFile() {
@@ -424,7 +440,10 @@ export class FileManager {
 		if (!fileExplorer || !activeFileOrFolder) return;
 
 		const src = activeFileOrFolder.path;
-		const dest = addSuffixBeforeExtension(src, COPY_SUFFIX);
+		const dest = addSuffixBeforeExtension(
+			src,
+			this.plugin.settings.duplicateSuffix
+		);
 		await this._copyFileOrFolder(
 			fileExplorer,
 			src,
@@ -442,9 +461,7 @@ export class FileManager {
 		fileExplorer: FileExplorer,
 		src: string,
 		dest: string,
-		resolve:
-			| FileConflictResolution
-			| ((s: string) => Promise<FileConflictResolution>)
+		resolve: FileConflictResolution | null = null
 	): Promise<FileConflictResolution | null> {
 		return this._conflictSolver(
 			fileExplorer,
@@ -465,10 +482,8 @@ export class FileManager {
 	 */
 	async moveFiles(
 		path: string,
-		resolve:
-			| FileConflictResolution
-			| ((s: string) => Promise<FileConflictResolution>),
-		ancestorToNameMap: Map<string, string> | null = null
+		ancestorToNameMap: Map<string, string> | null = null,
+		resolve: FileConflictResolution | null = null
 	): Promise<Map<string, FileConflictResolution | null>> {
 		const stats: Map<string, FileConflictResolution | null> = new Map();
 		const fileExplorer = this.getFileExplorer();
@@ -501,9 +516,7 @@ export class FileManager {
 		fileExplorer: FileExplorer,
 		src: string,
 		dest: string,
-		resolve:
-			| FileConflictResolution
-			| ((s: string) => Promise<FileConflictResolution>)
+		resolve: FileConflictResolution | null = null
 	): Promise<FileConflictResolution | null> {
 		return this._conflictSolver(
 			fileExplorer,
@@ -556,10 +569,8 @@ export class FileManager {
 	 */
 	async copyFiles(
 		path: string,
-		resolve:
-			| FileConflictResolution
-			| ((s: string) => Promise<FileConflictResolution>),
-		ancestorToNameMap: Map<string, string> | null = null
+		ancestorToNameMap: Map<string, string> | null = null,
+		resolve: FileConflictResolution | null = null
 	): Promise<Map<string, FileConflictResolution | null>> {
 		const stats: Map<string, FileConflictResolution | null> = new Map();
 
@@ -582,6 +593,26 @@ export class FileManager {
 			);
 		}
 		return stats;
+	}
+
+	/**
+	 * Selects the items in the file explorer with the specified `paths`. If
+	 * `clearSelection` is true, it clears the selection before selecting new items.
+	 * Returns the total number of current selected items.
+	 */
+	selectItems(paths: string[], clearSelection: boolean = true): number {
+		if (clearSelection) this.deselectAll();
+
+		const fileExplorer = this.getFileExplorer();
+		if (!fileExplorer) return 0;
+
+		const tree = fileExplorer.tree as unknown as MockTree;
+		paths.forEach((path) => {
+			const item = fileExplorer.fileItems[path];
+			if (!item) return;
+			tree.selectItem(item);
+		});
+		return fileExplorer.tree.selectedDoms.size;
 	}
 
 	/**
@@ -653,13 +684,16 @@ export class FileManager {
 	}
 
 	/**
-	 * Clears the selection of all items in the file explorer.
+	 * Clears the selection of all items in the file explorer. It returns
+	 * the total number of items that were selected before clearing.
 	 */
-	deselectAll() {
+	deselectAll(): number {
 		const fileExplorer = this.getFileExplorer();
-		if (!fileExplorer) return;
+		if (!fileExplorer) return 0;
 
 		const tree = fileExplorer.tree as unknown as MockTree;
+		const selected = fileExplorer.tree.selectedDoms.size;
 		tree.clearSelectedDoms();
+		return selected;
 	}
 }
