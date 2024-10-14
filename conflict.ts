@@ -54,6 +54,12 @@ export class ConflictModal extends Modal {
 		this.setTitle(`There is a conflict with "${file}"`);
 
 		const setting = new Setting(this.contentEl);
+		setting.addToggle((toggle) => {
+			toggle.setValue(false);
+			toggle.onChange((value) => {
+				console.log(value);
+			});
+		});
 
 		const resolutions: FileConflictResolution[] = Object.values(
 			FileConflictResolution

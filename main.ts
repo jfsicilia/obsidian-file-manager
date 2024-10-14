@@ -224,10 +224,12 @@ export default class FileManagerPlugin
 						);
 						if (this.fileOperation === FileOperation.MOVE)
 							this.clipboard = null;
-						new Notice(
-							`${this.fileOperation} stats:\n\n` +
-								statsToString(stats)
-						);
+
+						if (this.settings.showCopyMoveInfo)
+							new Notice(
+								`${this.fileOperation} stats:\n\n` +
+									statsToString(stats)
+							);
 					}
 				}),
 		});
@@ -241,9 +243,10 @@ export default class FileManagerPlugin
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
 							const stats = await this.fm.moveFiles(path);
-							new Notice(
-								"Move stats:\n\n" + statsToString(stats)
-							);
+							if (this.settings.showCopyMoveInfo)
+								new Notice(
+									"Move stats:\n\n" + statsToString(stats)
+								);
 						}
 					).open();
 				}),
@@ -258,9 +261,10 @@ export default class FileManagerPlugin
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
 							const stats = await this.fm.copyFiles(path);
-							new Notice(
-								"Copy stats:\n\n" + statsToString(stats)
-							);
+							if (this.settings.showCopyMoveInfo)
+								new Notice(
+									"Copy stats:\n\n" + statsToString(stats)
+								);
 						}
 					).open();
 				}),
@@ -271,7 +275,8 @@ export default class FileManagerPlugin
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.selectAll(true);
-					new Notice(`${numSelected} items selected.`);
+					if (this.settings.showSelectionInfo)
+						new Notice(`${numSelected} items selected.`);
 				}),
 		});
 		this.addCommand({
@@ -280,7 +285,8 @@ export default class FileManagerPlugin
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.toggleSelect();
-					new Notice(`${numSelected} items selected.`);
+					if (this.settings.showSelectionInfo)
+						new Notice(`${numSelected} items selected.`);
 				}),
 		});
 		this.addCommand({
@@ -289,7 +295,8 @@ export default class FileManagerPlugin
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.deselectAll();
-					new Notice(`${numSelected} items deselected.`);
+					if (this.settings.showSelectionInfo)
+						new Notice(`${numSelected} items deselected.`);
 				}),
 		});
 		this.addCommand({
@@ -298,7 +305,8 @@ export default class FileManagerPlugin
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.invertSelection();
-					new Notice(`${numSelected} items selected.`);
+					if (this.settings.showSelectionInfo)
+						new Notice(`${numSelected} items selected.`);
 				}),
 		});
 		this.addCommand({
