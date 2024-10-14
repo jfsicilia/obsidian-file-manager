@@ -9,9 +9,9 @@ export enum FileConflictResolution {
 
 // User can config the settings with the following options for file conflict resolution.
 export enum FileConflictOption {
-	SKIP = FileConflictResolution.SKIP,
-	OVERWRITE = FileConflictResolution.OVERWRITE,
-	KEEP = FileConflictResolution.KEEP,
+	SKIP = "SKIP",
+	OVERWRITE = "OVERWRITE",
+	KEEP = "KEEP",
 	PROMPT = "PROMPT",
 }
 
