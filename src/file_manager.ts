@@ -324,7 +324,9 @@ export class FileManager {
 			[resolve, applyToAll] =
 				await this.plugin.getFileConflictResolutionMethod(dest);
 		if (resolve === FileConflictResolution.OVERWRITE) {
-			await this.vault.delete(fileExplorer.fileItems[dest].file);
+			await this.app.fileManager.trashFile(
+				fileExplorer.fileItems[dest].file
+			);
 			await operation(src, dest);
 			return [FileConflictResolution.OVERWRITE, applyToAll];
 		}
