@@ -2,6 +2,7 @@ import { Plugin, Vault, View, TAbstractFile, TFile, TFolder } from "obsidian";
 
 import {
 	FileExplorer,
+	FolderItem,
 	MockApp,
 	MockVault,
 	MockWorkspace,
@@ -354,11 +355,17 @@ export class FileManager {
 		const path = getFolderPath(activeFileOrFolder);
 		if (!path) return;
 
-		// The new folder name will be "New Folder[ n]" where [ n] is '' or a number.
-		const newPath = genNonExistingPath(
-			fileExplorer,
-			path + DIR_SEP + this.plugin.settings.newFolderName
-		);
+		// Expand the parent folder to show the new folder, if it's not root.
+		if (path !== DIR_SEP) {
+			const parentFolderItem = fileExplorer.fileItems[path] as FolderItem;
+			parentFolderItem.setCollapsed(false);
+		}
+
+		// Generate a non existing name for the new folder.
+		let newPath =
+			(path === DIR_SEP ? "" : path + DIR_SEP) +
+			this.plugin.settings.newFolderName;
+		newPath = genNonExistingPath(fileExplorer, newPath);
 
 		// Create the new subfolder and set focus on it.
 		const newFolder = await this.vault.createFolder(newPath);
@@ -367,11 +374,12 @@ export class FileManager {
 			true
 		);
 
+		// TODO: Regresion - This was working in Obsidian 1.6. Not working in 1.7
 		// Give chance to the user to rename the new folder.
 		// Call to nextFrame is mandatory to show correctly the rename textbox.
-		this.app.nextFrame(
-			async () => await fileExplorer.startRenameFile(newFolder)
-		);
+		// this.app.nextFrame(
+		// 	async () => await fileExplorer.startRenameFile(newFolder)
+		// );
 	}
 
 	/**
@@ -406,10 +414,16 @@ export class FileManager {
 			this.getFileExplorerAndActiveFileOrFolder();
 		if (!fileExplorer || !activeFileOrFolder) return;
 
-		const path =
+		const path: string =
 			activeFileOrFolder instanceof TFolder
 				? activeFileOrFolder.path
-				: activeFileOrFolder.parent?.path;
+				: activeFileOrFolder.parent?.path!;
+
+		// Expand the parent folder to show the new note.
+		const parentFolderItem = fileExplorer.fileItems[path] as FolderItem;
+		parentFolderItem.setCollapsed(false);
+
+		// Generate a non existing name for the new note.
 		const newPath = genNonExistingPath(
 			fileExplorer,
 			path + DIR_SEP + this.plugin.settings.newNoteName
@@ -417,7 +431,15 @@ export class FileManager {
 
 		// Create empty note and set focus on it.
 		await this.vault.create(newPath, "");
-		fileExplorer.tree.setFocusedItem(fileExplorer.fileItems[newPath], true);
+		const newNoteItem = fileExplorer.fileItems[newPath];
+		fileExplorer.tree.setFocusedItem(newNoteItem, true);
+
+		// TODO: Regresion - This was working in Obsidian 1.6. Not working in 1.7
+		// Give chance to the user to rename the new folder.
+		// Call to nextFrame is mandatory to show correctly the rename textbox.
+		// this.app.nextFrame(
+		// 	async () => await fileExplorer.startRenameFile(newNoteItem.file)
+		// );
 	}
 
 	/**

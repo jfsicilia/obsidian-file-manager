@@ -41,6 +41,7 @@ declare module "obsidian-internals" {
 		childrenEl: HTMLDivElement;
 		collapseIndicatorEl: HTMLDivElement;
 		collapsed: boolean;
+		setCollapsed: (collapsed: boolean) => void;
 		pusherEl: HTMLDivElement;
 	}
 
