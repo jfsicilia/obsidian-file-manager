@@ -52,6 +52,7 @@ export default class FileManagerPlugin
 	implements FileManagerSettingsProvider, FileConflictResolutionProvider
 {
 	settings: FileManagerSettings;
+	statusBar: HTMLElement;
 
 	// The file manager instance that provides file operations.
 	private fm: FileManager = new FileManager(this);
@@ -146,9 +147,27 @@ export default class FileManagerPlugin
 		return this._checkAsyncCallback(checking, func, operation, ...args);
 	}
 
+	/**
+	 * Helper function to show a message in the status bar.
+	 */
+	showStatusBarMessage(message: string) {
+		this.statusBar.empty();
+		this.statusBar.createEl("span", { text: message });
+	}
+
+	showSelectedInStatusBar(numSelected: number) {
+		this.showStatusBarMessage(
+			numSelected > 0
+				? `${numSelected} item${numSelected > 1 ? "s" : ""} selected.`
+				: ""
+		);
+	}
+
 	async onload() {
 		this.settings = DEFAULT_SETTINGS;
 		await this.loadSettings();
+
+		this.statusBar = this.addStatusBarItem();
 
 		this.addCommand({
 			id: "create-subfolder",
@@ -276,7 +295,7 @@ export default class FileManagerPlugin
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.selectAll(true);
 					if (this.settings.showSelectionInfo)
-						new Notice(`${numSelected} items selected.`);
+						this.showSelectedInStatusBar(numSelected);
 				}),
 		});
 		this.addCommand({
@@ -286,7 +305,7 @@ export default class FileManagerPlugin
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.toggleSelect();
 					if (this.settings.showSelectionInfo)
-						new Notice(`${numSelected} items selected.`);
+						this.showSelectedInStatusBar(numSelected);
 				}),
 		});
 		this.addCommand({
@@ -294,9 +313,9 @@ export default class FileManagerPlugin
 			name: "Clear selection",
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
-					const numSelected = this.fm.deselectAll();
+					this.fm.deselectAll();
 					if (this.settings.showSelectionInfo)
-						new Notice(`${numSelected} items deselected.`);
+						this.showStatusBarMessage("");
 				}),
 		});
 		this.addCommand({
@@ -306,7 +325,7 @@ export default class FileManagerPlugin
 				this.isFileExplorerActiveCallback(checking, () => {
 					const numSelected = this.fm.invertSelection();
 					if (this.settings.showSelectionInfo)
-						new Notice(`${numSelected} items selected.`);
+						this.showSelectedInStatusBar(numSelected);
 				}),
 		});
 		this.addCommand({
@@ -343,6 +362,8 @@ export default class FileManagerPlugin
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+
+		this.statusBar.empty();
 	}
 }
 

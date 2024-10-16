@@ -148,6 +148,12 @@ export const FILE_EXPLORER_TYPE = "file-explorer";
 export const DIR_SEP = "/";
 export const EXT_SEP = ".";
 
+const EXPAND_FOLDER_AFTER_OPERATION: (FileConflictResolution | null)[] = [
+	FileConflictResolution.KEEP,
+	FileConflictResolution.OVERWRITE,
+	null,
+];
+
 /**
  * FileManager class provides a set of methods to interact with the file explorer.
  */
@@ -497,6 +503,7 @@ export class FileManager {
 				const fileManager = fileExplorer.app.fileManager;
 				const fileOrFolder: TAbstractFile =
 					fileExplorer.fileItems[src].file;
+
 				await fileManager.renameFile(fileOrFolder, dest);
 			},
 			resolve
@@ -525,6 +532,11 @@ export class FileManager {
 				newDest,
 				resolve
 			);
+			// Check if we should expand a destination folder.
+			if (EXPAND_FOLDER_AFTER_OPERATION.includes(resolution)) {
+				const destItem = fileExplorer.fileItems[path] as FolderItem;
+				destItem.setCollapsed(false);
+			}
 			stats.set(newDest, resolution);
 			if (applyToAll) resolve = resolution;
 		}
@@ -611,6 +623,11 @@ export class FileManager {
 				newDest,
 				resolve
 			);
+			// Check if we should expand a destination folder.
+			if (EXPAND_FOLDER_AFTER_OPERATION.includes(resolution)) {
+				const destItem = fileExplorer.fileItems[path] as FolderItem;
+				destItem.setCollapsed(false);
+			}
 			stats.set(newDest, resolution);
 			if (applyToAll) resolve = resolution;
 		}
