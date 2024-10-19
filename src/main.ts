@@ -155,11 +155,12 @@ export default class FileManagerPlugin
 		this.statusBar.createEl("span", { text: message });
 	}
 
+	/**
+	 * Show the number of selected files/folders in the status bar.
+	 */
 	showSelectedInStatusBar(numSelected: number) {
 		this.showStatusBarMessage(
-			numSelected > 0
-				? `${numSelected} item${numSelected > 1 ? "s" : ""} selected.`
-				: ""
+			numSelected > 0 ? `📄 or 📂 selected: ${numSelected}` : ""
 		);
 	}
 
