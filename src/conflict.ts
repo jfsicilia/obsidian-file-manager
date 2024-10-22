@@ -54,33 +54,48 @@ export class ConflictModal extends Modal {
 
 	constructor(app: App, file: string) {
 		super(app);
-		this.setTitle(`There is a conflict with "${file}"`);
+		const { contentEl } = this;
 
-		let setting = new Setting(this.contentEl);
-		setting.setName("Do the same for all conflicts?");
-		setting.addToggle((toggle) => {
-			toggle.setValue(this.applyToAll);
-			toggle.onChange((value) => {
-				this.applyToAll = value;
-			});
+		this.setTitle("There is a conflict with: ");
+		const modalContent = contentEl.createDiv({ cls: "fn-modal-content" });
+		modalContent.createEl("p", { text: file });
+
+		const btnContainer = contentEl.createEl("div", {
+			cls: "modal-button-container",
 		});
 
-		setting = new Setting(this.contentEl);
+		const checkbox = btnContainer.createEl("label", {
+			cls: "mod-checkbox",
+		});
+		checkbox.tabIndex = -1;
+		const input = checkbox.createEl("input", { type: "checkbox" });
+		checkbox.appendText("Don't ask again");
+		input.addEventListener("change", (e) => {
+			const target = e.target as HTMLInputElement;
+			this.applyToAll = target.checked;
+		});
+
 		const resolutions: FileConflictResolution[] = Object.values(
 			FileConflictResolution
 		) as FileConflictResolution[];
+
 		resolutions.forEach((resolution) => {
-			setting.addButton((btn) =>
-				btn
-					.setButtonText(
-						FileConflictResolutionDescription[resolution]
-					)
-					.setCta()
-					.onClick(() => {
-						this.resolvePromise([resolution, this.applyToAll]);
-						this.close();
-					})
-			);
+			const btn = btnContainer.createEl("button", {
+				text: FileConflictResolutionDescription[resolution],
+				cls: "mod-cta",
+			});
+			btn.addEventListener("click", () => {
+				this.resolvePromise([resolution, this.applyToAll]);
+				this.close();
+			});
+		});
+		const cancelBtn = btnContainer.createEl("button", {
+			text: "Cancel",
+			cls: "mod-cancel",
+		});
+		cancelBtn.addEventListener("click", async () => {
+			this.resolvePromise([FileConflictResolution.SKIP, this.applyToAll]);
+			this.close();
 		});
 	}
 
