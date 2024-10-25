@@ -35,15 +35,6 @@ export const FileConflictOptionDescription: Record<
 };
 
 /**
- * Allows to provide the file conflict resolution method for a file.
- */
-export interface FileConflictResolutionProvider {
-	getFileConflictResolutionMethod(
-		path: string
-	): Promise<[FileConflictResolution, boolean]>;
-}
-
-/**
  * Modal to prompt the user to choose the file conflict resolution method.
  */
 export class ConflictModal extends Modal {

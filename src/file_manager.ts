@@ -1,4 +1,4 @@
-import { Plugin, Vault, View, TAbstractFile, TFile, TFolder } from "obsidian";
+import { Vault, Platform, View, TAbstractFile, TFile, TFolder } from "obsidian";
 
 import {
 	FileExplorer,
@@ -9,12 +9,9 @@ import {
 	MockTree,
 } from "obsidian-internals";
 
-import { FileManagerSettingsProvider } from "settings";
-
-import {
-	FileConflictResolutionProvider,
-	FileConflictResolution,
-} from "conflict";
+import { FileConflictResolution } from "conflict";
+import FileManagerPlugin from "main";
+import { normalize } from "path";
 
 // ------------------------- Helper Functions -------------------------
 
@@ -141,6 +138,14 @@ function ancestorsPathsToName(paths: string[]): Map<string, string> {
 	return pathsMap;
 }
 
+export function getAbsolutePathOfFile(file: TAbstractFile): string {
+	const path = normalize(`${this.app.vault.adapter.basePath}/${file.path}`);
+	if (Platform.isDesktopApp && navigator.platform === "Win32") {
+		return path.replace(/\//g, "\\");
+	}
+	return path;
+}
+
 // ------------------------- File Manager -------------------------
 
 export const FILE_EXPLORER_TYPE = "file-explorer";
@@ -158,17 +163,12 @@ const EXPAND_FOLDER_AFTER_OPERATION: (FileConflictResolution | null)[] = [
  * FileManager class provides a set of methods to interact with the file explorer.
  */
 export class FileManager {
-	private plugin: FileManagerSettingsProvider &
-		FileConflictResolutionProvider;
+	private plugin: FileManagerPlugin;
 	private app: MockApp;
 	private vault: MockVault;
 	private workspace: MockWorkspace;
 
-	constructor(
-		plugin: Plugin &
-			FileManagerSettingsProvider &
-			FileConflictResolutionProvider
-	) {
+	constructor(plugin: FileManagerPlugin) {
 		this.plugin = plugin;
 		this.app = plugin.app as MockApp;
 		this.vault = plugin.app.vault as MockVault;

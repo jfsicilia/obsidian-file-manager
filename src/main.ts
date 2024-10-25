@@ -1,6 +1,9 @@
 import {
 	App,
 	Modal,
+	Menu,
+	TFile,
+	TAbstractFile,
 	Notice,
 	Plugin,
 	TFolder,
@@ -12,16 +15,16 @@ import { FileManager, DIR_SEP } from "file_manager";
 import {
 	FileConflictOption,
 	FileConflictResolution,
-	FileConflictResolutionProvider,
 	ConflictModal,
 } from "conflict";
 
 import {
-	FileManagerSettingsProvider,
 	FileManagerSettingTab,
 	FileManagerSettings,
 	DEFAULT_SETTINGS,
 } from "settings";
+
+import { OpenWithCmd, openFile } from "open_with_cmd";
 
 // Used to keep track of whether the user is copying or moving files
 enum FileOperation {
@@ -47,10 +50,7 @@ function statsToString(
 /**
  * The main plugin class that provides file manager commands.
  */
-export default class FileManagerPlugin
-	extends Plugin
-	implements FileManagerSettingsProvider, FileConflictResolutionProvider
-{
+export default class FileManagerPlugin extends Plugin {
 	settings: FileManagerSettings;
 	statusBar: HTMLElement;
 
@@ -162,6 +162,28 @@ export default class FileManagerPlugin
 		this.showStatusBarMessage(
 			numSelected > 0 ? `📄 or 📂 selected: ${numSelected}` : ""
 		);
+	}
+	/**
+	 * Creates a new OpenWithCmd object with the given name, command and arguments.
+	 * The callback function of the command will first check if the file explorer
+	 * has an active file or folder, and then open the file with the given command
+	 * and arguments.
+	 */
+	createOpenWithCmd(name: string, cmd: string, args: string): OpenWithCmd {
+		return {
+			id: "open-with-" + name.toLowerCase(),
+			name: "Open with " + name,
+			checkCallback: (checking: boolean): boolean => {
+				// Get the active file or folder in file explorer.
+				let file: TAbstractFile | null =
+					this.fm.getActiveFileOrFolder();
+				if (!file) return false;
+				if (checking) return true;
+				// All went well and not checking, so open the file.
+				(async () => await openFile(file, cmd, args))();
+				return true;
+			},
+		};
 	}
 
 	async onload() {
@@ -338,6 +360,30 @@ export default class FileManagerPlugin
 					this.fm.renameFile.bind(this.fm)
 				),
 		});
+
+		// Create dynamic Opew With commands from saved settings.
+		this.settings.apps.forEach((app) => {
+			this.addCommand(
+				this.createOpenWithCmd(app.name, app.cmd, app.args)
+			);
+		});
+
+		// Create dynamic Open with menu from saved settings.
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu: Menu, file: TFile) => {
+				this.settings.apps.forEach((app) => {
+					if (!app.showInMenu) return;
+					menu.addItem((item) => {
+						item.setTitle(`Open with ${app.name}`)
+							.setIcon("popup-open")
+							.onClick(
+								async () =>
+									await openFile(file, app.cmd, app.args)
+							);
+					});
+				});
+			})
+		);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new FileManagerSettingTab(this.app, this));

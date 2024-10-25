@@ -6,3 +6,37 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+.open-with-container {
+    display: flex;
+    width: 100%;
+    margin: 0 0 10px 0;
+}
+
+.open-with-name-inputbox {
+    flex: 1;
+    margin: 0 5px 0 0;
+    /* Equal width for first and third input */
+}
+
+.open-with-cmd-inputbox {
+    flex: 2;
+    margin: 0 5px 0 0;
+    /* Expands to fill remaining space */
+}
+
+.open-with-args-inputbox {
+    flex: 2;
+    margin: 0 5px 0 0;
+    /* Equal width for first and third input */
+}
+
+.open-with-btn {
+    flex: none;
+    margin: 0 0 0 10px;
+    /* Button maintains its size */
+}
+
+.open-with-show-text {
+    font-size: 0.8em;
+    color: grey;
+}
