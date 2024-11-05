@@ -59,30 +59,3 @@ export async function openFile(file: TAbstractFile, cmd: string, args: string) {
 	//@ts-ignore
 	await open("", { app });
 }
-
-/**
- * Creates a new OpenWithCmd object with the given name, command and arguments.
- * The callback function of the command will first check if the file explorer
- * has an active file or folder, and then open the file with the given command
- * and arguments.
- */
-export function createOpenWithCmd(
-	fm: FileManager,
-	name: string,
-	cmd: string,
-	args: string
-): OpenWithCmd {
-	return {
-		id: "open-with-" + name.toLowerCase(),
-		name: "Open with " + name,
-		checkCallback: (checking: boolean): boolean => {
-			// Get the active file or folder in file explorer.
-			let file: TAbstractFile | null = fm.getActiveFileOrFolder();
-			if (!file) return false;
-			if (checking) return true;
-			// All went well and not checking, so open the file.
-			(async () => await openFile(file, cmd, args))();
-			return true;
-		},
-	};
-}

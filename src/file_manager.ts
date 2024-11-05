@@ -16,6 +16,18 @@ import { normalize } from "path";
 // ------------------------- Helper Functions -------------------------
 
 /**
+ * Returns the absolute path of a file in the vault. It takes into account
+ * the platform and the path separator.
+ */
+export function getAbsolutePathOfFile(file: TAbstractFile): string {
+	const path = normalize(`${this.app.vault.adapter.basePath}/${file.path}`);
+	if (Platform.isDesktopApp && navigator.platform === "Win32") {
+		return path.replace(/\//g, "\\");
+	}
+	return path;
+}
+
+/**
  * Add a suffix before the extension of a file. If the file has no extension,
  * it will add the suffix at the end of the file name.
  *
@@ -126,24 +138,16 @@ function pruneDescendantsPaths(paths: string[]): string[] {
 	 * path without ancestors.
 	 * Example:
 
-	 * trimAncestors(["file.md", "notes/file2.md", "notes/folder/file3.md"])
+	 * createPathToNameMap(["file.md", "notes/file2.md", "notes/folder/file3.md"])
 	 * -> Map { "file.md":"file.md", "notes/file2.md":"file2.md", "notes/folder/file3.md":"file3.md" }
 
-	 * trimAncestors(["miDir", "dir1/dir2"])
+	 * createPathToNameMap(["miDir", "dir1/dir2"])
 	 * -> Map { "miDir":"miDir", "dir1/dir2":"dir2"}
 	 */
-function ancestorsPathsToName(paths: string[]): Map<string, string> {
+function createPathToNameMap(paths: string[]): Map<string, string> {
 	const pathsMap: Map<string, string> = new Map();
 	paths.forEach((path) => pathsMap.set(path, path.split(DIR_SEP).pop()!));
 	return pathsMap;
-}
-
-export function getAbsolutePathOfFile(file: TAbstractFile): string {
-	const path = normalize(`${this.app.vault.adapter.basePath}/${file.path}`);
-	if (Platform.isDesktopApp && navigator.platform === "Win32") {
-		return path.replace(/\//g, "\\");
-	}
-	return path;
 }
 
 // ------------------------- File Manager -------------------------
@@ -153,6 +157,8 @@ export const FILE_EXPLORER_TYPE = "file-explorer";
 export const DIR_SEP = "/";
 export const EXT_SEP = ".";
 
+// When a conflict occurs, if the user selects one of these options, then
+// the folder where the file/folder is moved/copied will be expanded.
 const EXPAND_FOLDER_AFTER_OPERATION: (FileConflictResolution | null)[] = [
 	FileConflictResolution.KEEP,
 	FileConflictResolution.OVERWRITE,
@@ -210,23 +216,70 @@ export class FileManager {
 
 	/**
 	 * Returns the selected files/folders in the file explorer. If no files/folders
-	 * are selected, it returns the active file/folder if available. If no active
-	 * file/folder is available, it returns an empty array.
+	 * are selected and `useActiveFileIfNonSelected` is true, it returns the
+	 * active file/folder if available. If no active
+	 * file/folder is available or `useActiveFileIfNonSelected` is false, it
+	 * returns an empty array.
 	 */
-	getSelectedFilesOrFolders(): TAbstractFile[] {
+	getSelectedFilesOrFolders(
+		useActiveFileIfNonSelected: boolean = true
+	): TAbstractFile[] {
 		const { fileExplorer, activeFileOrFolder } =
 			this.getFileExplorerAndActiveFileOrFolder();
 
 		if (!fileExplorer) return [];
 
-		// If no items are selected, return the active item if available.
-		if (fileExplorer.tree.selectedDoms.size === 0)
+		// If no items are selected, return the active item if available and
+		// `useActiveFileIfNonSelected` is true.
+		if (fileExplorer.tree.selectedDoms.size === 0) {
+			if (!useActiveFileIfNonSelected) return [];
 			return activeFileOrFolder ? [activeFileOrFolder] : [];
+		}
 
 		// Return all selected files/folders as TAbstractFiles.
 		return Array.from(
 			Array.from(fileExplorer.tree.selectedDoms.values()).map(
 				(item) => item.file
+			)
+		);
+	}
+
+	/**
+	 * Returns the selected files'/folders' path in the file explorer. If no files/folders
+	 * are selected and `useActiveFileIfNonSelected` is true, it returns the active
+	 * file'/folder' path if available. If no active file/folder is available or
+	 * `useActiveFileIfNonSelected` is false, it returns an empty array.
+	 * The returning paths can be pruned by removing the paths that are descendants
+	 * of other selected files/folders using the parameter `prune`.
+	 */
+	getSelectedFilesOrFoldersPath(
+		prune: boolean = false,
+		useActiveFileIfNonSelected: boolean = true
+	): string[] {
+		const paths: string[] = this.getSelectedFilesOrFolders(
+			useActiveFileIfNonSelected
+		).map((fileOrFolder) => fileOrFolder.path);
+		return prune ? pruneDescendantsPaths(paths) : paths;
+	}
+
+	/**
+	 * Get all selected files/folders' paths in the file explorer, if `prune` is
+	 * true, it simplifies the total by removing the paths that are descendants
+	 * of other selected files/folders. For the resulting paths, it creates and
+	 * returns a map where the key is the source path of the selected
+	 * files/folders in file explorer, and the value is the simplified
+	 * destination path (e.g. home/notes/file.md -> file.md).
+	 * `useActiveFileIfNonSelected` is true, it returns the active file/folder
+	 * path if no files/folders are selected.
+	 */
+	getSelectedPathToNameMap(
+		prune: boolean = false,
+		useActiveFileIfNonSelected: boolean = true
+	): Map<string, string> {
+		return createPathToNameMap(
+			this.getSelectedFilesOrFoldersPath(
+				prune,
+				useActiveFileIfNonSelected
 			)
 		);
 	}
@@ -284,21 +337,23 @@ export class FileManager {
 	}
 
 	/**
-	 * Get all selected files/folders' paths in the file explorer, it simplifies
-	 * the total by removing the paths that are descendants of other selected
-	 * files/folders. For the resulting paths, it creates and returns a map where
-	 * the key is the source path of the selected files/folders in file explorer,
-	 * and the value is the simplified destination path (e.g. home/notes/file.md
-	 * -> file.md).
+	 * Set focus and starts the rename operation of the file/folder in the
+	 * file explorer.
 	 */
-	// TODO: Change name.
-	getSelectedAncestorsPathToNameMap(): Map<string, string> {
-		const filesOrFolders: TAbstractFile[] =
-			this.getSelectedFilesOrFolders();
-
-		const paths = filesOrFolders.map((fileOrFolder) => fileOrFolder.path);
-
-		return ancestorsPathsToName(pruneDescendantsPaths(paths));
+	protected _focusAndRenameFile(
+		fileExplorer: FileExplorer,
+		fileOrFolder: TAbstractFile
+	) {
+		// TODO: Regresion - This was working in Obsidian 1.6. Not working in 1.7
+		// Give chance to the user to rename the new folder.
+		// Call to nextFrame is mandatory to show correctly the rename textbox.
+		// this.app.nextFrame(
+		// 	async () => await fileExplorer.startRenameFile(fileOrFolder)
+		// );
+		setTimeout(
+			async () => await fileExplorer.startRenameFile(fileOrFolder),
+			100
+		);
 	}
 
 	/**
@@ -306,11 +361,16 @@ export class FileManager {
 	 * on the source `src` and destination `dest` paths. If the destination
 	 * path already exists, it will use the `resolve` parameter to solve the
 	 * conflict. The `resolve` could be a `FileConflictResolution` value or
-	 * a function that receives the destination path and returns a
-	 * `FileConflictResolution` value. If SKIP, no operation is performed,
+	 * null, in this later case, will call `getFileConflictResolutionMethod`
+	 * from the plugin, to get the user's choice. If SKIP, no operation is performed,
 	 * if OVERWRITE, the destination is deleted and the operation is performed,
 	 * if KEEP, the destination is renamed and the operation is performed.
-	 * It returns the `FileConflictResolution` applied or null if no conflict.
+	 * It returns an array with three values:
+	 * - The `FileConflictResolution` applied or null if no conflict.
+	 * - A boolean indicating if the user wants to apply the same resolution
+	 *  to all conflicts.
+	 * - The final destination path where the operation was performed (useful
+	 * if a new filename has been created to avoid conflicts (KEEP)).
 	 */
 	protected async _conflictSolver(
 		fileExplorer: FileExplorer,
@@ -318,15 +378,16 @@ export class FileManager {
 		dest: string,
 		operation: (src: string, dest: string) => Promise<void>,
 		resolve: FileConflictResolution | null = null
-	): Promise<[FileConflictResolution | null, boolean]> {
+	): Promise<[FileConflictResolution | null, boolean, string]> {
 		let applyToAll = true;
 		// If destination doesn't exist, perform the operation (no conflict).
 		if (!(await this.vault.exists(dest))) {
 			await operation(src, dest);
-			return [null, applyToAll];
+			return [null, applyToAll, dest];
 		}
+		// Destination file/folder already exists. Handle conflict!
 
-		// Destination file/folder already exists. Handle conflict.
+		// If no resolution is provided, get the user's choice.
 		if (!resolve)
 			[resolve, applyToAll] =
 				await this.plugin.getFileConflictResolutionMethod(dest);
@@ -335,13 +396,15 @@ export class FileManager {
 				fileExplorer.fileItems[dest].file
 			);
 			await operation(src, dest);
-			return [FileConflictResolution.OVERWRITE, applyToAll];
+			return [FileConflictResolution.OVERWRITE, applyToAll, dest];
 		}
 		if (resolve === FileConflictResolution.KEEP) {
-			await operation(src, genNonExistingPath(fileExplorer, dest));
-			return [FileConflictResolution.KEEP, applyToAll];
+			// Generate a non existing path for the destination.
+			dest = genNonExistingPath(fileExplorer, dest);
+			await operation(src, dest);
+			return [FileConflictResolution.KEEP, applyToAll, dest];
 		}
-		return [FileConflictResolution.SKIP, applyToAll];
+		return [FileConflictResolution.SKIP, applyToAll, dest];
 	}
 
 	/**
@@ -349,17 +412,18 @@ export class FileManager {
 	 * folder will be created is determined by the `getFolderPath` function.
 	 * This function receives the focused/active file or folder in file explorer
 	 * and returns the path where the new folder will be created.
+	 * Returns the path of the new created folder or null if no folder was created.
 	 */
 	protected async _createFolder(
 		getFolderPath: (activeFileOrFolder: TAbstractFile) => string | undefined
-	) {
+	): Promise<string | null> {
 		const { fileExplorer, activeFileOrFolder } =
 			this.getFileExplorerAndActiveFileOrFolder();
-		if (!fileExplorer || !activeFileOrFolder) return;
+		if (!fileExplorer || !activeFileOrFolder) return null;
 
 		// Get the path of the folder where the new folder will be created.
 		const path = getFolderPath(activeFileOrFolder);
-		if (!path) return;
+		if (!path) return null;
 
 		// Expand the parent folder to show the new folder, if it's not root.
 		if (path !== DIR_SEP) {
@@ -380,21 +444,18 @@ export class FileManager {
 			true
 		);
 
-		// TODO: Regresion - This was working in Obsidian 1.6. Not working in 1.7
-		// Give chance to the user to rename the new folder.
-		// Call to nextFrame is mandatory to show correctly the rename textbox.
-		// this.app.nextFrame(
-		// 	async () => await fileExplorer.startRenameFile(newFolder)
-		// );
+		this._focusAndRenameFile(fileExplorer, newFolder);
+		return newPath;
 	}
 
 	/**
 	 * Creates a new subfolder within the currently selected or active folder
 	 * in the file explorer. If the currently selected or active item is a file,
 	 * the parent folder is used as active folder.
+	 * Returns the path of the new created folder or null if no folder was created.
 	 */
-	async createSubFolder() {
-		await this._createFolder((fileOrFolder) => {
+	async createSubFolder(): Promise<string | null> {
+		return await this._createFolder((fileOrFolder) => {
 			return fileOrFolder instanceof TFolder
 				? fileOrFolder.path
 				: fileOrFolder.parent?.path;
@@ -405,20 +466,22 @@ export class FileManager {
 	 * Creates a new folder as a sibling of the currently selected or active
 	 * folder in the file explorer. If the currently selected or active item is
 	 * a file, the parent folder is used as active folder.
+	 * Returns the path of the new created folder or null if no folder was created.
 	 */
-	async createFolder() {
-		await this._createFolder((fileOrFolder) => {
+	async createFolder(): Promise<string | null> {
+		return await this._createFolder((fileOrFolder) => {
 			return fileOrFolder.parent?.path;
 		});
 	}
 
 	/**
 	 * Creates a new note in the currently focused or active folder.
+	 * Returns the path of the new note or null if no note was created.
 	 */
-	async createNote() {
+	async createNote(): Promise<string | null> {
 		const { fileExplorer, activeFileOrFolder } =
 			this.getFileExplorerAndActiveFileOrFolder();
-		if (!fileExplorer || !activeFileOrFolder) return;
+		if (!fileExplorer || !activeFileOrFolder) return null;
 
 		const path: string =
 			activeFileOrFolder instanceof TFolder
@@ -440,12 +503,8 @@ export class FileManager {
 		const newNoteItem = fileExplorer.fileItems[newPath];
 		fileExplorer.tree.setFocusedItem(newNoteItem, true);
 
-		// TODO: Regresion - This was working in Obsidian 1.6. Not working in 1.7
-		// Give chance to the user to rename the new folder.
-		// Call to nextFrame is mandatory to show correctly the rename textbox.
-		// this.app.nextFrame(
-		// 	async () => await fileExplorer.startRenameFile(newNoteItem.file)
-		// );
+		this._focusAndRenameFile(fileExplorer, newNoteItem.file);
+		return newPath;
 	}
 
 	/**
@@ -476,25 +535,38 @@ export class FileManager {
 			src,
 			this.plugin.settings.duplicateSuffix
 		);
-		await this._copyFileOrFolder(
+		const [_1, _2, path] = await this._copyFileOrFolder(
 			fileExplorer,
 			src,
 			dest,
 			FileConflictResolution.KEEP
 		);
+		// Focus and rename the duplicated file/folder.
+		const fileOrFolder = fileExplorer.fileItems[path].file;
+		this._focusAndRenameFile(fileExplorer, fileOrFolder);
 	}
 
 	/**
 	 * Helper function that moves src file/folder to dest path, by using the
-	 * conflict solver to handle conflicts. It returns the
-	 * `FileConflictResolution` applied or null if no conflict.
+	 * conflict solver to handle conflicts.
+	 * The `resolve` could be a `FileConflictResolution` value or
+	 * null, in this later case, will call `getFileConflictResolutionMethod`
+	 * from the plugin, to get the user's choice. If SKIP, no operation is performed,
+	 * if OVERWRITE, the destination is deleted and the operation is performed,
+	 * if KEEP, the destination is renamed and the operation is performed.
+	 * It returns an array with three values:
+	 * - The `FileConflictResolution` applied or null if no conflict.
+	 * - A boolean indicating if the user wants to apply the same resolution
+	 *  to all conflicts.
+	 * - The final destination path where the operation was performed (useful
+	 * if a new filename has been created to avoid conflicts (KEEP)).
 	 */
 	protected async _moveFileOrFolder(
 		fileExplorer: FileExplorer,
 		src: string,
 		dest: string,
 		resolve: FileConflictResolution | null = null
-	): Promise<[FileConflictResolution | null, boolean]> {
+	): Promise<[FileConflictResolution | null, boolean, string]> {
 		return this._conflictSolver(
 			fileExplorer,
 			src,
@@ -522,11 +594,11 @@ export class FileManager {
 		const fileExplorer = this.getFileExplorer();
 		if (!fileExplorer) return stats;
 
-		if (!pathToName) pathToName = this.getSelectedAncestorsPathToNameMap();
+		if (!pathToName) pathToName = this.getSelectedPathToNameMap(true);
 
 		for (const [src, dest] of pathToName) {
 			const newDest = `${path}/${dest}`;
-			const [resolution, applyToAll] = await this._moveFileOrFolder(
+			const [resolution, applyToAll, _] = await this._moveFileOrFolder(
 				fileExplorer,
 				src,
 				newDest,
@@ -545,15 +617,25 @@ export class FileManager {
 
 	/**
 	 * Helper function that copies src file/folder to dest path, by using the
-	 * conflict solver to handle conflicts. It returns the
-	 * `FileConflictResolution` applied or null if no conflict.
+	 * conflict solver to handle conflicts.
+	 * The `resolve` could be a `FileConflictResolution` value or
+	 * null, in this later case, will call `getFileConflictResolutionMethod`
+	 * from the plugin, to get the user's choice. If SKIP, no operation is performed,
+	 * if OVERWRITE, the destination is deleted and the operation is performed,
+	 * if KEEP, the destination is renamed and the operation is performed.
+	 * It returns an array with three values:
+	 * - The `FileConflictResolution` applied or null if no conflict.
+	 * - A boolean indicating if the user wants to apply the same resolution
+	 *  to all conflicts.
+	 * - The final destination path where the operation was performed (useful
+	 * if a new filename has been created to avoid conflicts (KEEP)).
 	 */
 	protected async _copyFileOrFolder(
 		fileExplorer: FileExplorer,
 		src: string,
 		dest: string,
 		resolve: FileConflictResolution | null = null
-	): Promise<[FileConflictResolution | null, boolean]> {
+	): Promise<[FileConflictResolution | null, boolean, string]> {
 		return this._conflictSolver(
 			fileExplorer,
 			src,
@@ -613,11 +695,11 @@ export class FileManager {
 		const fileExplorer = this.getFileExplorer();
 		if (!fileExplorer) return stats;
 
-		if (!pathToName) pathToName = this.getSelectedAncestorsPathToNameMap();
+		if (!pathToName) pathToName = this.getSelectedPathToNameMap(true);
 
 		for (const [src, dest] of pathToName) {
 			const newDest = `${path}/${dest}`;
-			const [resolution, applyToAll] = await this._copyFileOrFolder(
+			const [resolution, applyToAll, _] = await this._copyFileOrFolder(
 				fileExplorer,
 				src,
 				newDest,
@@ -659,14 +741,13 @@ export class FileManager {
 	 * active item. Returns total number of selected items. If `clearSelection` is
 	 * true, it clears the selection before selecting new items.
 	 */
-	selectAll(clearSelection: boolean = true): number {
+	selectAll(clearSelection: boolean = true) {
 		const { fileExplorer, activeFileOrFolder } =
 			this.getFileExplorerAndActiveFileOrFolder();
-		if (!fileExplorer) return 0;
-		if (!activeFileOrFolder) return fileExplorer.tree.selectedDoms.size;
+		if (!fileExplorer || !activeFileOrFolder) return;
 
 		let parentPath = activeFileOrFolder.parent?.path;
-		if (!parentPath) return 0;
+		if (!parentPath) return;
 		// If the parent path is the root, we need to remove the slash.
 		parentPath = parentPath === DIR_SEP ? "" : parentPath + DIR_SEP;
 
@@ -676,7 +757,6 @@ export class FileManager {
 		for (const [path, item] of Object.entries(fileExplorer.fileItems)) {
 			if (path.startsWith(parentPath)) tree.selectItem(item);
 		}
-		return fileExplorer.tree.selectedDoms.size;
 	}
 
 	/**
@@ -684,11 +764,10 @@ export class FileManager {
 	 * total number of selected items. If `clearSelection` is true, it clears the
 	 * selection before toggling.
 	 */
-	toggleSelect(clearSelection: boolean = false): number {
+	toggleSelect(clearSelection: boolean = false) {
 		const { fileExplorer, activeFileOrFolder } =
 			this.getFileExplorerAndActiveFileOrFolder();
-		if (!fileExplorer) return 0;
-		if (!activeFileOrFolder) return fileExplorer.tree.selectedDoms.size;
+		if (!fileExplorer || !activeFileOrFolder) return;
 
 		const tree = fileExplorer.tree as unknown as MockTree;
 		if (clearSelection) tree.clearSelectedDoms();
@@ -698,16 +777,14 @@ export class FileManager {
 		const selected = fileExplorer.tree.selectedDoms.has(fileOrFolder);
 		if (selected) tree.deselectItem(fileOrFolder);
 		else tree.selectItem(fileOrFolder);
-
-		return fileExplorer.tree.selectedDoms.size;
 	}
 
 	/**
 	 * Inverts the current selection of items in file explorer.
 	 */
-	invertSelection(): number {
+	invertSelection() {
 		const fileExplorer = this.getFileExplorer();
-		if (!fileExplorer) return 0;
+		if (!fileExplorer) return;
 
 		// Get all items that are not currently selected.
 		const toSelect = [];
@@ -718,21 +795,17 @@ export class FileManager {
 		const tree = fileExplorer.tree as unknown as MockTree;
 		tree.clearSelectedDoms();
 		toSelect.forEach((item) => tree.selectItem(item));
-
-		return fileExplorer.tree.selectedDoms.size;
 	}
 
 	/**
 	 * Clears the selection of all items in the file explorer. It returns
 	 * the total number of items that were selected before clearing.
 	 */
-	deselectAll(): number {
+	deselectAll() {
 		const fileExplorer = this.getFileExplorer();
-		if (!fileExplorer) return 0;
+		if (!fileExplorer) return;
 
 		const tree = fileExplorer.tree as unknown as MockTree;
-		const selected = fileExplorer.tree.selectedDoms.size;
 		tree.clearSelectedDoms();
-		return selected;
 	}
 }

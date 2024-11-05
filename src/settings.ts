@@ -31,8 +31,9 @@ export interface AppCmd {
  */
 export interface FileManagerSettings {
 	conflictResolutionMethod: string;
-	showSelectionInfo: boolean;
-	showCopyMoveInfo: boolean;
+	showSelectionStatusBar: boolean;
+	showCopyMoveStats: boolean;
+	showClipboardStatusBar: boolean;
 	newFolderName: string;
 	newNoteName: string;
 	duplicateSuffix: string;
@@ -42,8 +43,9 @@ export interface FileManagerSettings {
 // Default settings for the FileManager plugin
 export const DEFAULT_SETTINGS: FileManagerSettings = {
 	conflictResolutionMethod: FileConflictOption.SKIP,
-	showSelectionInfo: true,
-	showCopyMoveInfo: true,
+	showSelectionStatusBar: true,
+	showCopyMoveStats: true,
+	showClipboardStatusBar: true,
 	newFolderName: "New Folder",
 	newNoteName: "New Note.md",
 	duplicateSuffix: " - Copy",
@@ -82,24 +84,39 @@ export class FileManagerSettingTab extends PluginSettingTab {
 					})
 			);
 		new Setting(containerEl)
-			.setName("Show copy/move info")
+			.setName("Show copy/move stats")
 			.setDesc("When a copy/move operation is done, show the stats")
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.showCopyMoveInfo)
+					.setValue(this.plugin.settings.showCopyMoveStats)
 					.onChange(async (value) => {
-						this.plugin.settings.showCopyMoveInfo = value;
+						this.plugin.settings.showCopyMoveStats = value;
 						await this.plugin.saveSettings();
 					})
 			);
 		new Setting(containerEl)
-			.setName("Show selection info")
-			.setDesc("Show the number of selected files in the status bar")
+			.setName("Show selection info in status bar")
+			.setDesc(
+				"Show, in the status bar, the number of selected files/folders"
+			)
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.showSelectionInfo)
+					.setValue(this.plugin.settings.showSelectionStatusBar)
 					.onChange(async (value) => {
-						this.plugin.settings.showSelectionInfo = value;
+						this.plugin.settings.showSelectionStatusBar = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName("Show clipboard info in status bar")
+			.setDesc(
+				"Show, in the status bar, the number of files/folders in the clipboard"
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.showClipboardStatusBar)
+					.onChange(async (value) => {
+						this.plugin.settings.showClipboardStatusBar = value;
 						await this.plugin.saveSettings();
 					})
 			);

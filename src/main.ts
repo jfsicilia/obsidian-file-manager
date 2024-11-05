@@ -10,6 +10,8 @@ import {
 	FuzzySuggestModal,
 } from "obsidian";
 
+import { FileOrFolderItem, MockTree } from "obsidian-internals";
+
 import { FileManager, DIR_SEP } from "file_manager";
 
 import {
@@ -52,7 +54,8 @@ function statsToString(
  */
 export default class FileManagerPlugin extends Plugin {
 	settings: FileManagerSettings;
-	statusBar: HTMLElement;
+	selectedStatusBar: HTMLElement;
+	clipboardStatusBar: HTMLElement;
 
 	// The file manager instance that provides file operations.
 	private fm: FileManager = new FileManager(this);
@@ -148,21 +151,62 @@ export default class FileManagerPlugin extends Plugin {
 	}
 
 	/**
-	 * Helper function to show a message in the status bar.
+	 * Show the number of selected files/folders in the status bar.
 	 */
-	showStatusBarMessage(message: string) {
-		this.statusBar.empty();
-		this.statusBar.createEl("span", { text: message });
+	showSelectedInStatusBar() {
+		this.selectedStatusBar.empty();
+		const selected = this.fm.getSelectedFilesOrFoldersPath(false, false);
+		if (!this.settings.showSelectionStatusBar || !selected) return;
+
+		let numFiles = 0;
+		let numFolders = 0;
+		for (const path of selected) {
+			const fileOrFolder: TAbstractFile | null =
+				this.app.vault.getAbstractFileByPath(path);
+			if (fileOrFolder instanceof TFile) numFiles++;
+			else if (fileOrFolder instanceof TFolder) numFolders++;
+		}
+		if (numFiles === 0 && numFolders === 0) return;
+
+		const filesTxt = numFiles > 0 ? `${numFiles} 📄` : "";
+		const foldersTxt = numFolders > 0 ? `${numFolders} 📂` : "";
+		const msg =
+			numFiles > 0 && numFolders > 0
+				? `(Selected: ${filesTxt} and ${foldersTxt})`
+				: `(Selected: ${filesTxt}${foldersTxt})`;
+		this.selectedStatusBar.createEl("span", { text: msg });
 	}
 
 	/**
-	 * Show the number of selected files/folders in the status bar.
+	 * Show the number of files and folders in the clipboard in the status bar.
 	 */
-	showSelectedInStatusBar(numSelected: number) {
-		this.showStatusBarMessage(
-			numSelected > 0 ? `📄 or 📂 selected: ${numSelected}` : ""
-		);
+	showClipboardInStatusBar() {
+		this.clipboardStatusBar.empty();
+		if (!this.settings.showClipboardStatusBar || !this.clipboard) return;
+
+		let numFiles = 0;
+		let numFolders = 0;
+		for (const path of this.clipboard.keys()) {
+			const fileOrFolder: TAbstractFile | null =
+				this.app.vault.getAbstractFileByPath(path);
+			if (fileOrFolder instanceof TFile) numFiles++;
+			else if (fileOrFolder instanceof TFolder) numFolders++;
+		}
+		if (numFiles === 0 && numFolders === 0) return;
+
+		const filesTxt = numFiles > 0 ? `${numFiles} 📄` : "";
+		const foldersTxt = numFolders > 0 ? `${numFolders} 📂` : "";
+		const prefix =
+			this.fileOperation === FileOperation.COPY
+				? "Copied to clipboard:"
+				: "Cut to clipboard:";
+		const msg =
+			numFiles > 0 && numFolders > 0
+				? `(${prefix} ${filesTxt} and ${foldersTxt})`
+				: `(${prefix} ${filesTxt}${foldersTxt})`;
+		this.clipboardStatusBar.createEl("span", { text: msg });
 	}
+
 	/**
 	 * Creates a new OpenWithCmd object with the given name, command and arguments.
 	 * The callback function of the command will first check if the file explorer
@@ -174,9 +218,9 @@ export default class FileManagerPlugin extends Plugin {
 			id: "open-with-" + name.toLowerCase(),
 			name: "Open with " + name,
 			checkCallback: (checking: boolean): boolean => {
-				// Get the active file or folder in file explorer.
-				let file: TAbstractFile | null =
-					this.fm.getActiveFileOrFolder();
+				let file: TAbstractFile | null = this.fm.isFileExplorerActive()
+					? this.fm.getActiveFileOrFolder()
+					: this.app.workspace.getActiveFile();
 				if (!file) return false;
 				if (checking) return true;
 				// All went well and not checking, so open the file.
@@ -186,12 +230,67 @@ export default class FileManagerPlugin extends Plugin {
 		};
 	}
 
+	/**
+	 * Patch fileExplorer.tree.selectItem and fileExplorer.tree.deselectItem to
+	 * update selected files/folders in status bar.
+	 */
+	patchFileExplorerSelectionFunctions() {
+		const fileExplorer = this.fm.getFileExplorer();
+		if (!fileExplorer) return;
+
+		const showSelectedInStatusBarFunc =
+			this.showSelectedInStatusBar.bind(this);
+		const tree = fileExplorer.tree as unknown as MockTree;
+
+		// Patch tree.selectItem to update selected files/folders in status bar.
+		const oldSelectItemFunc = tree.selectItem.bind(fileExplorer.tree);
+		tree.selectItem = function (e: FileOrFolderItem) {
+			const res = oldSelectItemFunc(e);
+			showSelectedInStatusBarFunc();
+			return res;
+		};
+
+		// Patch tree.deselectItem to update selected files/folders in status bar.
+		const oldDeselectItemFunc = tree.deselectItem.bind(fileExplorer.tree);
+		tree.deselectItem = function (e: FileOrFolderItem) {
+			const res = oldDeselectItemFunc(e);
+			showSelectedInStatusBarFunc();
+			return res;
+		};
+	}
+
+	/**
+	 * The main plugin function that is called when the plugin is loaded.
+	 */
 	async onload() {
+		// Load the settings.
 		this.settings = DEFAULT_SETTINGS;
 		await this.loadSettings();
 
-		this.statusBar = this.addStatusBarItem();
+		// Create status bar items for selected files/folders and clipboard.
+		this.selectedStatusBar = this.addStatusBarItem();
+		this.clipboardStatusBar = this.addStatusBarItem();
 
+		// Patch fileExplorer selection/deselection functions to update status
+		// bar on selection/deselection of files/folders.
+		this.app.workspace.onLayoutReady(() => {
+			this.patchFileExplorerSelectionFunctions();
+		});
+
+		// Update selected files/folders and clipboard in status bar whenever
+		// there is a delete event.
+		this.app.vault.on("delete", (file: TAbstractFile) => {
+			// If the file is in the clipboard, remove it from the clipboard
+			// and update the status bar.
+			if (this.clipboard && this.clipboard.has(file.path)) {
+				this.clipboard.delete(file.path);
+				this.showClipboardInStatusBar();
+			}
+			// Always update the selected files/folders in the status bar.
+			this.showSelectedInStatusBar();
+		});
+
+		// Create commands.
 		this.addCommand({
 			id: "create-subfolder",
 			name: "Create a subfolder within the focused or active file/folder",
@@ -233,10 +332,10 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Copy selected files/folders to clipboard",
 			checkCallback: (checking: boolean) =>
 				this.isActiveFileOrFolderCallback(checking, () => {
-					this.clipboard =
-						this.fm.getSelectedAncestorsPathToNameMap();
+					this.clipboard = this.fm.getSelectedPathToNameMap(true);
 					this.fileOperation = FileOperation.COPY;
 					new Notice("Files copied to clipboard");
+					this.showClipboardInStatusBar();
 				}),
 		});
 		this.addCommand({
@@ -244,10 +343,10 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Cut selected files/folders to clipboard",
 			checkCallback: (checking: boolean) =>
 				this.isActiveFileOrFolderCallback(checking, () => {
-					this.clipboard =
-						this.fm.getSelectedAncestorsPathToNameMap();
+					this.clipboard = this.fm.getSelectedPathToNameMap(true);
 					this.fileOperation = FileOperation.MOVE;
 					new Notice("Files cut to clipboard");
+					this.showClipboardInStatusBar();
 				}),
 		});
 		this.addCommand({
@@ -264,16 +363,30 @@ export default class FileManagerPlugin extends Plugin {
 							this.fm.getActiveFileOrFolder()!.path,
 							this.clipboard
 						);
-						if (this.fileOperation === FileOperation.MOVE)
+						// Clear the clipboard after moving files remain in
+						// clipboard if the operation is copy.
+						if (this.fileOperation === FileOperation.MOVE) {
 							this.clipboard = null;
+							this.showClipboardInStatusBar();
+						}
 
-						if (this.settings.showCopyMoveInfo)
+						if (this.settings.showCopyMoveStats)
 							new Notice(
 								`${this.fileOperation} stats:\n\n` +
 									statsToString(stats)
 							);
 					}
 				}),
+		});
+		this.addCommand({
+			id: "clear-clipboard",
+			name: "Clear clipboard",
+			checkCallback: (checking: boolean) => {
+				if (!this.clipboard) return false;
+				if (checking) return true;
+				this.clipboard = null;
+				this.showClipboardInStatusBar();
+			},
 		});
 		this.addCommand({
 			id: "move-files",
@@ -285,7 +398,7 @@ export default class FileManagerPlugin extends Plugin {
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
 							const stats = await this.fm.moveFiles(path);
-							if (this.settings.showCopyMoveInfo)
+							if (this.settings.showCopyMoveStats)
 								new Notice(
 									"Move stats:\n\n" + statsToString(stats)
 								);
@@ -303,7 +416,7 @@ export default class FileManagerPlugin extends Plugin {
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
 							const stats = await this.fm.copyFiles(path);
-							if (this.settings.showCopyMoveInfo)
+							if (this.settings.showCopyMoveStats)
 								new Notice(
 									"Copy stats:\n\n" + statsToString(stats)
 								);
@@ -316,9 +429,8 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Select all siblings and children of the focused or active file/folder",
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
-					const numSelected = this.fm.selectAll(true);
-					if (this.settings.showSelectionInfo)
-						this.showSelectedInStatusBar(numSelected);
+					this.fm.selectAll(true);
+					this.showSelectedInStatusBar();
 				}),
 		});
 		this.addCommand({
@@ -326,9 +438,8 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Toggle selection of the focused or active file/folder",
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
-					const numSelected = this.fm.toggleSelect();
-					if (this.settings.showSelectionInfo)
-						this.showSelectedInStatusBar(numSelected);
+					this.fm.toggleSelect();
+					this.showSelectedInStatusBar();
 				}),
 		});
 		this.addCommand({
@@ -337,8 +448,7 @@ export default class FileManagerPlugin extends Plugin {
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
 					this.fm.deselectAll();
-					if (this.settings.showSelectionInfo)
-						this.showStatusBarMessage("");
+					this.showSelectedInStatusBar();
 				}),
 		});
 		this.addCommand({
@@ -346,9 +456,8 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Invert selection",
 			checkCallback: (checking: boolean) =>
 				this.isFileExplorerActiveCallback(checking, () => {
-					const numSelected = this.fm.invertSelection();
-					if (this.settings.showSelectionInfo)
-						this.showSelectedInStatusBar(numSelected);
+					this.fm.invertSelection();
+					this.showSelectedInStatusBar();
 				}),
 		});
 		this.addCommand({
@@ -361,14 +470,14 @@ export default class FileManagerPlugin extends Plugin {
 				),
 		});
 
-		// Create dynamic Opew With commands from saved settings.
+		// Create dynamic Open With commands from saved settings.
 		this.settings.apps.forEach((app) => {
 			this.addCommand(
 				this.createOpenWithCmd(app.name, app.cmd, app.args)
 			);
 		});
 
-		// Create dynamic Open with menu from saved settings.
+		// Create dynamic Open With menu from saved settings.
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu: Menu, file: TFile) => {
 				this.settings.apps.forEach((app) => {
@@ -410,7 +519,9 @@ export default class FileManagerPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 
-		this.statusBar.empty();
+		// Update the status bar to reflect the new settings.
+		this.showClipboardInStatusBar();
+		this.showSelectedInStatusBar();
 	}
 }
 
