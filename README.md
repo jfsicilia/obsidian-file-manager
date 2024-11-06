@@ -100,3 +100,10 @@ This plugin is licensed under the MIT License.
 
 -   Implement **merge** for folders copy/move.
 -   After copying/moving files, autoselect files on destination.
+
+## Acknowledgments
+
+This plugin has been inspired by the following plugins. Thanks in advance to all the developers.
+
+-   [Obsidian Open With](https://github.com/phibr0/obsidian-open-with)
+-   [Obsidian File Explorer Count](https://github.com/ozntel/file-explorer-note-count)
