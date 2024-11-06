@@ -68,7 +68,7 @@ Using the settings tab, new custom _open with_ commands can be created.
 
 The _open with_ commands are also available in the _File Context Menu_ if option is selected in the settings.
 
-![Context Menu](./assets/contextmenu.png | width=100)
+<img src="./assets/contextmenu.png" width="200">
 
 ## Installation
 
