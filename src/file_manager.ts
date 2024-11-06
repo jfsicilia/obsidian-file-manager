@@ -2,7 +2,9 @@ import { Vault, Platform, View, TAbstractFile, TFile, TFolder } from "obsidian";
 
 import {
 	FileExplorer,
+	FileOrFolderItem,
 	FolderItem,
+	FileItem,
 	MockApp,
 	MockVault,
 	MockWorkspace,
@@ -148,6 +150,37 @@ function createPathToNameMap(paths: string[]): Map<string, string> {
 	const pathsMap: Map<string, string> = new Map();
 	paths.forEach((path) => pathsMap.set(path, path.split(DIR_SEP).pop()!));
 	return pathsMap;
+}
+
+/**
+ * Uncollapse the folder, and all the ancestors, in the file explorer that
+ * contains the file/folder with the given `path`.
+ */
+function uncollapsePath(fileExplorer: FileExplorer, path: string) {
+	let item = fileExplorer.fileItems[path] as FileOrFolderItem;
+	if (!item) return;
+
+	// Loops through the ancestors and uncollapse them until the root.
+	while (true) {
+		if (item.file instanceof TFolder)
+			(item as FolderItem).setCollapsed(false);
+		const parent = item.file.parent;
+		if (!parent || !parent.name) break;
+		item = item.parent;
+	}
+}
+
+/**
+ * Scrolls the file explorer to bring the file/folder with the given `path`
+ * into view.
+ */
+function scrollToPath(fileExplorer: FileExplorer, path: string) {
+	// Get the file element in the DOM
+	const fileEl = fileExplorer.containerEl.querySelector(
+		`[data-path="${path}"]`
+	);
+	// Scroll the container to bring the file element into view
+	if (fileEl) fileEl.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 // ------------------------- File Manager -------------------------
@@ -426,10 +459,7 @@ export class FileManager {
 		if (!path) return null;
 
 		// Expand the parent folder to show the new folder, if it's not root.
-		if (path !== DIR_SEP) {
-			const parentFolderItem = fileExplorer.fileItems[path] as FolderItem;
-			parentFolderItem.setCollapsed(false);
-		}
+		if (path !== DIR_SEP) uncollapsePath(fileExplorer, path);
 
 		// Generate a non existing name for the new folder.
 		let newPath =
@@ -488,9 +518,8 @@ export class FileManager {
 				? activeFileOrFolder.path
 				: activeFileOrFolder.parent?.path!;
 
-		// Expand the parent folder to show the new note.
-		const parentFolderItem = fileExplorer.fileItems[path] as FolderItem;
-		parentFolderItem.setCollapsed(false);
+		// Expand ancestors' folders to show the new note.
+		uncollapsePath(fileExplorer, path);
 
 		// Generate a non existing name for the new note.
 		const newPath = genNonExistingPath(
@@ -605,10 +634,9 @@ export class FileManager {
 				resolve
 			);
 			// Check if we should expand a destination folder.
-			if (EXPAND_FOLDER_AFTER_OPERATION.includes(resolution)) {
-				const destItem = fileExplorer.fileItems[path] as FolderItem;
-				destItem.setCollapsed(false);
-			}
+			if (EXPAND_FOLDER_AFTER_OPERATION.includes(resolution))
+				uncollapsePath(fileExplorer, path);
+
 			stats.set(newDest, resolution);
 			if (applyToAll) resolve = resolution;
 		}
@@ -706,10 +734,9 @@ export class FileManager {
 				resolve
 			);
 			// Check if we should expand a destination folder.
-			if (EXPAND_FOLDER_AFTER_OPERATION.includes(resolution)) {
-				const destItem = fileExplorer.fileItems[path] as FolderItem;
-				destItem.setCollapsed(false);
-			}
+			if (EXPAND_FOLDER_AFTER_OPERATION.includes(resolution))
+				uncollapsePath(fileExplorer, path);
+
 			stats.set(newDest, resolution);
 			if (applyToAll) resolve = resolution;
 		}
@@ -807,5 +834,31 @@ export class FileManager {
 
 		const tree = fileExplorer.tree as unknown as MockTree;
 		tree.clearSelectedDoms();
+	}
+
+	/**
+	 * Focuses the file/folder in the file explorer with the specified `path`.
+	 * If the file/folder is a file, it will open it.
+	 */
+	focusPath(path: string) {
+		const { fileExplorer, activeFileOrFolder } =
+			this.getFileExplorerAndActiveFileOrFolder();
+		if (!fileExplorer || !activeFileOrFolder) return null;
+
+		const item = fileExplorer.fileItems[path];
+		if (!item) return;
+
+		// Focus File Explorer.
+		this.workspace.setActiveLeaf(
+			this.workspace.getLeavesOfType(FILE_EXPLORER_TYPE)[0],
+			{ focus: true }
+		);
+		// Focus item in file explorer.
+		uncollapsePath(fileExplorer, path);
+		fileExplorer.tree.setFocusedItem(item, true);
+		scrollToPath(fileExplorer, path);
+		// Open item if it's a file.
+		// if (item.file instanceof TFile)
+		// 	this.workspace.getLeaf().openFile(item.file);
 	}
 }

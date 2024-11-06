@@ -26,6 +26,7 @@ declare module "obsidian-internals" {
 		file: TFile;
 		fileExplorer: FileExplorer;
 		info: any;
+		parent: FolderItem;
 		selfEl: HTMLDivElement;
 		innerEl: HTMLDivElement;
 	}
@@ -33,6 +34,7 @@ declare module "obsidian-internals" {
 	export interface FolderItem {
 		el: HTMLDivElement;
 		fileExplorer: FileExplorer;
+		parent: FolderItem;
 		info: any;
 		selfEl: HTMLDivElement;
 		innerEl: HTMLDivElement;

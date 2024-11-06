@@ -164,18 +164,18 @@ export class FileManagerSettingTab extends PluginSettingTab {
 		const setting = new Setting(containerEl);
 		setting.setName("Add new application to open with");
 		const div = containerEl.createDiv({ cls: "setting-item-description" });
-		div.innerHTML = `Use full path command or just command if it is globally available
+		div.innerHTML = `Use full <i>path to command</i> or just <i>command</i> if it is globally available
 		    (for example <i>c:\\Program Files\\myTool\\myTool.exe</i> or <i>code</i> for VSCode).<BR><BR>
 
-		    Arguments are optional and can include variables:<BR><BR>
+		    Arguments are optional and can include any of these predefined variables:<BR><BR>
 
             <b>${VAR_FILE_PATH}</b> - File path<BR>
             <b>${VAR_FOLDER_PATH}</b> - Folder path<BR>
             <b>${VAR_FILE_NAME}</b> - File name<BR>
             <b>${VAR_FOLDER_NAME}</b> - Folder name<BR><BR>
 
-            Arguments are optional, if no arguments are provided, the <i>${VAR_FILE_PATH}</i> 
-            will be added automatically as argument for the command.<BR>
+            If no arguments are provided, the <i>${VAR_FILE_PATH}</i> variable
+            will be added automatically as argument for the command.<BR><BR>
             Sometimes the command needs the arguments to be send independently, 
             you can separate arguments using commas in those cases.<BR><BR>
 

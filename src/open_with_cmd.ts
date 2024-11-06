@@ -1,6 +1,5 @@
 import { getAbsolutePathOfFile } from "file_manager";
 import { TAbstractFile, TFile, TFolder } from "obsidian";
-import { FileManager } from "file_manager";
 import open from "open";
 
 /**

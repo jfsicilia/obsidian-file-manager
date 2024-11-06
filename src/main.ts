@@ -1,6 +1,5 @@
 import {
 	App,
-	Modal,
 	Menu,
 	TFile,
 	TAbstractFile,
@@ -147,6 +146,32 @@ export default class FileManagerPlugin extends Plugin {
 		...args: any[]
 	): boolean {
 		const func = this.fm.isFileExplorerActive.bind(this.fm);
+		return this._checkAsyncCallback(checking, func, operation, ...args);
+	}
+
+	/**
+	 * Helper function that checks if there is a file explorer available,
+	 * if so a command (operation) can run.
+	 */
+	isFileExplorerAvailableCallback(
+		checking: boolean,
+		operation: (...args: any[]) => any,
+		...args: any[]
+	): boolean {
+		const func = this.fm.isFileExplorerAvailable.bind(this.fm);
+		return this._checkCallback(checking, func, operation, ...args);
+	}
+
+	/**
+	 * Helper function that checks if there is a file explorer available,
+	 * if so a command (operation) can run asynchronously.
+	 */
+	isFileExplorerAvailableAsyncCallback(
+		checking: boolean,
+		operation: (...args: any[]) => Promise<any>,
+		...args: any[]
+	): boolean {
+		const func = this.fm.isFileExplorerAvailable.bind(this.fm);
 		return this._checkAsyncCallback(checking, func, operation, ...args);
 	}
 
@@ -393,7 +418,7 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Move selected files/folders to a new folder",
 			checkCallback: (checking: boolean) =>
 				this.isActiveFileOrFolderCallback(checking, () => {
-					new SuggestFolderModal(
+					new SuggestPathModal(
 						this.app,
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
@@ -411,7 +436,7 @@ export default class FileManagerPlugin extends Plugin {
 			name: "Copy selected files/folders to a new folder",
 			checkCallback: (checking: boolean) =>
 				this.isActiveFileOrFolderCallback(checking, () => {
-					new SuggestFolderModal(
+					new SuggestPathModal(
 						this.app,
 						this.app.vault.getAllFolders(true),
 						async (path: string) => {
@@ -468,6 +493,24 @@ export default class FileManagerPlugin extends Plugin {
 					checking,
 					this.fm.renameFile.bind(this.fm)
 				),
+		});
+		this.addCommand({
+			id: "go-to-in-file-explorer",
+			name: "Go to file or folder in file explorer",
+			checkCallback: (checking: boolean) =>
+				this.isFileExplorerAvailableCallback(checking, () => {
+					const allFilesAndFolders: TAbstractFile[] = [
+						...this.app.vault.getAllFolders(true),
+						...this.app.vault.getFiles(),
+					];
+					new SuggestPathModal(
+						this.app,
+						allFilesAndFolders,
+						async (path: string) => {
+							this.fm.focusPath(path);
+						}
+					).open();
+				}),
 		});
 
 		// Create dynamic Open With commands from saved settings.
@@ -528,11 +571,11 @@ export default class FileManagerPlugin extends Plugin {
 /**
  * A modal that suggests folders to the user.
  */
-class SuggestFolderModal extends FuzzySuggestModal<TFolder> {
+class SuggestPathModal extends FuzzySuggestModal<TAbstractFile> {
 	constructor(
 		app: App,
 		// The folders to suggest to the user
-		private folders: TFolder[],
+		private folders: TAbstractFile[],
 		// The function to execute when the user selects a folder
 		private toDo: (path: string) => Promise<void>
 	) {
@@ -542,21 +585,21 @@ class SuggestFolderModal extends FuzzySuggestModal<TFolder> {
 	/**
 	 * Returns the folders to suggest to the user.
 	 */
-	getItems(): TFolder[] {
+	getItems(): TAbstractFile[] {
 		return this.folders;
 	}
 
 	/**
 	 * Returns the text to display for a folder.
 	 */
-	getItemText(folder: TFolder): string {
+	getItemText(folder: TAbstractFile): string {
 		return folder.path;
 	}
 
 	/**
 	 * Executes the function toDo when the user selects a folder.
 	 */
-	onChooseItem(folder: TFolder, evt: MouseEvent | KeyboardEvent) {
+	onChooseItem(folder: TAbstractFile, evt: MouseEvent | KeyboardEvent) {
 		(async () => await this.toDo(folder.path))();
 	}
 }
