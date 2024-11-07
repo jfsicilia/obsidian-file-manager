@@ -52,6 +52,11 @@ export const DEFAULT_SETTINGS: FileManagerSettings = {
 	apps: [],
 };
 
+function htmlToFragment(html: string): DocumentFragment {
+	const range = document.createRange();
+	return range.createContextualFragment(html);
+}
+
 /**
  * FileManagerPlugin settings tab
  */
@@ -164,7 +169,7 @@ export class FileManagerSettingTab extends PluginSettingTab {
 		const setting = new Setting(containerEl);
 		setting.setName("Add new application to open with");
 		const div = containerEl.createDiv({ cls: "setting-item-description" });
-		div.innerHTML = `Use full <i>path to command</i> or just <i>command</i> if it is globally available
+		const helpMsg = `Use full <i>path to command</i> or just <i>command</i> if it is globally available
 		    (for example <i>c:\\Program Files\\myTool\\myTool.exe</i> or <i>code</i> for VSCode).<BR><BR>
 
 		    Arguments are optional and can include any of these predefined variables:<BR><BR>
@@ -185,6 +190,7 @@ export class FileManagerSettingTab extends PluginSettingTab {
             <b>Example 4:</b> Command: <i>wt</i> | Arguments: <i>-p, Ubuntu, wsl, --cd, ${VAR_FOLDER_PATH}</i><BR><BR>
 
 		    <b>NOTE:</b> No need to add double quotes for paths with spaces.<BR><BR>`;
+		div.appendChild(htmlToFragment(helpMsg));
 
 		// Create input boxes for the new command.
 		const inputContainer = containerEl.createDiv({
