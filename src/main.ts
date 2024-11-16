@@ -26,6 +26,8 @@ import {
 } from "settings";
 
 import { OpenWithCmd, openFile } from "open_with_cmd";
+import { PathExplorer } from "path_explorer";
+import { SuggestPathModal } from "path_modal";
 
 // Used to keep track of whether the user is copying or moving files
 enum FileOperation {
@@ -58,6 +60,8 @@ export default class FileManagerPlugin extends Plugin {
 
 	// The file manager instance that provides file operations.
 	private fm: FileManager = new FileManager(this);
+
+	private pe: PathExplorer = new PathExplorer(this);
 
 	// We keep track of the selected files/folders for a cut/copy operation.
 	private clipboard: Map<string, string> | null;
@@ -315,6 +319,11 @@ export default class FileManagerPlugin extends Plugin {
 			this.showSelectedInStatusBar();
 		});
 
+		this.registerMarkdownCodeBlockProcessor(
+			"pathexplorer",
+			async (source, el, ctx) => this.pe.processCodeBlock(source, el)
+		);
+
 		// Create commands.
 		this.addCommand({
 			id: "create-subfolder",
@@ -565,41 +574,5 @@ export default class FileManagerPlugin extends Plugin {
 		// Update the status bar to reflect the new settings.
 		this.showClipboardInStatusBar();
 		this.showSelectedInStatusBar();
-	}
-}
-
-/**
- * A modal that suggests folders to the user.
- */
-class SuggestPathModal extends FuzzySuggestModal<TAbstractFile> {
-	constructor(
-		app: App,
-		// The folders to suggest to the user
-		private folders: TAbstractFile[],
-		// The function to execute when the user selects a folder
-		private toDo: (path: string) => Promise<void>
-	) {
-		super(app);
-	}
-
-	/**
-	 * Returns the folders to suggest to the user.
-	 */
-	getItems(): TAbstractFile[] {
-		return this.folders;
-	}
-
-	/**
-	 * Returns the text to display for a folder.
-	 */
-	getItemText(folder: TAbstractFile): string {
-		return folder.path;
-	}
-
-	/**
-	 * Executes the function toDo when the user selects a folder.
-	 */
-	onChooseItem(folder: TAbstractFile, evt: MouseEvent | KeyboardEvent) {
-		(async () => await this.toDo(folder.path))();
 	}
 }

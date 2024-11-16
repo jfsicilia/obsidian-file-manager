@@ -13,6 +13,7 @@ import {
 	VAR_FOLDER_PATH,
 } from "open_with_cmd";
 import FileManagerPlugin from "main";
+import { LucideIconPickerModal } from "icon_modal";
 
 import { FileConflictOptionDescription, FileConflictOption } from "conflict";
 
@@ -24,6 +25,7 @@ export interface AppCmd {
 	cmd: string;
 	args: string;
 	showInMenu: boolean;
+	icon: string;
 }
 
 /**
@@ -51,6 +53,8 @@ export const DEFAULT_SETTINGS: FileManagerSettings = {
 	duplicateSuffix: " - Copy",
 	apps: [],
 };
+
+const DEFAULT_ICON = "circle-dashed";
 
 function htmlToFragment(html: string): DocumentFragment {
 	const range = document.createRange();
@@ -196,8 +200,21 @@ export class FileManagerSettingTab extends PluginSettingTab {
 		const inputContainer = containerEl.createDiv({
 			cls: "open-with-container",
 		});
+
+		let icon = DEFAULT_ICON;
+		const iconBtn = new ButtonComponent(inputContainer)
+			.setIcon(icon)
+			.setTooltip("Choose icon")
+			.setClass("open-with-icon-btn")
+			.onClick(() => {
+				new LucideIconPickerModal(this.app, (iconSelected) => {
+					icon = iconSelected;
+					if (icon) iconBtn.setIcon(icon);
+				}).open();
+			});
+
 		const nameInput = inputContainer.createEl("input", {
-			attr: { type: "text", placeholder: "Display Name" },
+			attr: { type: "text", placeholder: "Display name" },
 			cls: "open-with-name-inputbox",
 		});
 		const cmdInput = inputContainer.createEl("input", {
@@ -213,23 +230,25 @@ export class FileManagerSettingTab extends PluginSettingTab {
 		new ButtonComponent(inputContainer)
 			.setIcon("rotate-ccw")
 			.setTooltip("Reset fields")
-			.setClass("open-with-btn")
+			.setClass("open-with-reset-btn")
 			.onClick(() => {
 				nameInput.value = "";
 				cmdInput.value = "";
 				argsInput.value = "";
+				icon = DEFAULT_ICON;
+				iconBtn.setIcon(icon);
 			});
 		new ButtonComponent(inputContainer)
 			.setIcon("circle-plus")
 			.setTooltip("Add command to open with...")
-			.setClass("open-with-btn")
+			.setClass("open-with-add-btn")
 			.onClick(async () => {
 				const name = nameInput.value.trim();
 				const cmd = cmdInput.value.trim();
 				let args = argsInput.value.trim();
 				if (!(name && cmd)) {
 					return new Notice(
-						"Display Name & Path/Command are always neccessary."
+						"Display name & path/command are always neccessary."
 					);
 				}
 				// If no arguments are provided, add the file path as argument.
@@ -241,13 +260,14 @@ export class FileManagerSettingTab extends PluginSettingTab {
 					this.plugin.createOpenWithCmd(name, cmd, args)
 				);
 
-				const newApp = { name, cmd, args, showInMenu: false };
+				const newApp = { name, cmd, args, showInMenu: false, icon };
 				// If the app already in the settings, update it.
 				let found = false;
 				for (const app of this.plugin.settings.apps) {
 					if (app.name !== newApp.name) continue;
 					app.cmd = newApp.cmd;
 					app.args = newApp.args;
+					app.icon = newApp.icon;
 					found = true;
 					new Notice(`Modifying ${app.name} command.`);
 					break;
@@ -263,6 +283,7 @@ export class FileManagerSettingTab extends PluginSettingTab {
 
 		// Display all saved commands in the settings.
 		this.plugin.settings.apps.forEach((app) => {
+			if (!app.icon) app.icon = DEFAULT_ICON;
 			new Setting(containerEl)
 				.setName(app.name)
 				.setDesc(
@@ -281,20 +302,25 @@ export class FileManagerSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				})
+				.addButton((btn) => {
+					btn.setIcon(app.icon).setTooltip("Icon for command");
+				})
 				// Button to fill the commands fields with this command.
 				.addButton((btn) => {
-					btn.setIcon("rectangle-ellipsis")
-						.setTooltip("Fill fields with this command")
+					btn.setIcon("pen")
+						.setTooltip("Edit command")
 						.onClick(async () => {
 							nameInput.value = app.name;
 							cmdInput.value = app.cmd;
 							argsInput.value = app.args;
+							icon = app.icon;
+							iconBtn.setIcon(icon);
 						});
 				})
 				// Button to remove the command.0
 				.addButton((btn) => {
 					btn.setIcon("trash")
-						.setTooltip("Remove")
+						.setTooltip("Remove command")
 						.onClick(async () => {
 							new Notice(
 								"You need to restart Obsidian to effectively remove this command."
