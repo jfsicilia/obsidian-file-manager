@@ -197,7 +197,7 @@ export class FileManagerSettingTab extends PluginSettingTab {
 			cls: "open-with-container",
 		});
 		const nameInput = inputContainer.createEl("input", {
-			attr: { type: "text", placeholder: "Display Name" },
+			attr: { type: "text", placeholder: "Display name" },
 			cls: "open-with-name-inputbox",
 		});
 		const cmdInput = inputContainer.createEl("input", {
@@ -229,7 +229,7 @@ export class FileManagerSettingTab extends PluginSettingTab {
 				let args = argsInput.value.trim();
 				if (!(name && cmd)) {
 					return new Notice(
-						"Display Name & Path/Command are always neccessary."
+						"Display name & path/command are always neccessary."
 					);
 				}
 				// If no arguments are provided, add the file path as argument.

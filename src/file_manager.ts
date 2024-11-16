@@ -1,10 +1,17 @@
-import { Vault, Platform, View, TAbstractFile, TFile, TFolder } from "obsidian";
+import {
+	Vault,
+	Platform,
+	View,
+	TAbstractFile,
+	TFile,
+	TFolder,
+	FileSystemAdapter,
+} from "obsidian";
 
 import {
 	FileExplorer,
 	FileOrFolderItem,
 	FolderItem,
-	FileItem,
 	MockApp,
 	MockVault,
 	MockWorkspace,
@@ -17,15 +24,22 @@ import { normalize } from "path";
 
 // ------------------------- Helper Functions -------------------------
 
+export function getVaultAbsolutePath(): string {
+	let adapter = this.app.vault.adapter;
+	if (adapter instanceof FileSystemAdapter) return adapter.getBasePath();
+
+	return "";
+}
 /**
  * Returns the absolute path of a file in the vault. It takes into account
  * the platform and the path separator.
  */
 export function getAbsolutePathOfFile(file: TAbstractFile): string {
-	const path = normalize(`${this.app.vault.adapter.basePath}/${file.path}`);
-	if (Platform.isDesktopApp && navigator.platform === "Win32") {
+	const basePath = getVaultAbsolutePath();
+	const path = normalize(`${basePath}/${file.path}`);
+	if (Platform.isDesktopApp && Platform.isWin)
 		return path.replace(/\//g, "\\");
-	}
+
 	return path;
 }
 
