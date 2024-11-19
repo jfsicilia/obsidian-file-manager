@@ -2,6 +2,8 @@
 
 This plugin enhances the Obsidian File Explorer by adding essential file management features. It introduces several new commands to interact with the `File Explorer`, allowing users to bind hotkeys to these operations. The goal is to enable complete file management within Obsidian using only the keyboard.
 
+**NOTE**: Added to 1.2 version new `pathexplorer` codeblock. See details below.
+
 ## Features
 
 -   **Open with**: Open file/folders with custom commands.
@@ -19,6 +21,7 @@ This plugin enhances the Obsidian File Explorer by adding essential file managem
 -   **Invert Selection**: Invert the current selection.
 -   **Deselect All**: Clear selection.
 -   **Rename**: Rename file/folder.
+-   **pathexplorer codeblock**: Show files and folders of provided path/s and open them with custom commands.
 
 ### Copy/Move Conflict Resolution
 
@@ -69,6 +72,86 @@ Using the settings tab, new custom _open with_ commands can be created.
 The _open with_ commands are also available in the _File Context Menu_ if option is selected in the settings.
 
 <img src="./assets/contextmenu.png" width="200">
+
+### pathexplorer codeblock
+
+Added in version 1.2 a new `pathexplorer` codeblock it's available. For example
+if you write this codeblock in a note:
+
+````
+
+```pathexplorer
+# Path or paths to explore.
+path C:\projects\dev\dump_shortcuts
+
+# If present include dump_shortcuts as root of files and folders. 
+include-root
+
+# Use .gitignore syntax to ignore files/folders.
+ignore .git/
+ignore .venv/
+ignore old/
+ignore build/
+ignore dist/
+ignore test*/
+ignore __pycache__/
+ignore .*
+ignore *.bat
+ignore *.spec
+
+# Define max-depth (default 1)
+max-depth 3
+
+# Define max-files (default 100)
+max-files 20 
+```
+````
+
+You will see something like this in the reader mode.
+
+![Settings](./assets/pathexplorer.png)
+
+#### `pathexplorer` codeblock syntax.
+
+> **#** 
+> 
+> For line comments
+> 
+> **path \<relative or absolute path\>**
+> 
+> Path to explore (Win/Mac/Linux format supported). Multiple paths
+> can be defined, one per line. Paths will be shown one after another.
+> 
+> **include-root**
+>
+> If path is a folder, show folder as parent of dangling children.
+>
+> **max-depth**
+>
+> Max depth level to explore in the tree.
+>
+> **max-files**
+>
+> Max number of files/folders to show.
+>
+> **ignore**
+>
+> Use `.gitignore` patterns to ignore files and folders. Inverted
+> patterns are also supported (`!<pattern>`). Multiple ignore patterns
+> can be defined, one per line.
+>
+> **flat [\<none\> | hide-files | hide-folders]**
+>
+> Omit tree hierachy, files and folders will be shown as a list.
+> Optional hide-files and hide-folders can be used in combination with
+> flat.
+>
+> **hide-icons**
+>
+> If matching patterns have been defined in settings, after a 
+> file/folder a command icon wil be shown (if pattern matches)
+> allowing the user to click and execute the command. Commands
+> are also added to the file/folder context menu.
 
 ## Installation
 
