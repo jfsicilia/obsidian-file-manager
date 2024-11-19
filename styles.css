@@ -6,37 +6,132 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
-.open-with-container {
+.settings-open-with-container {
     display: flex;
     width: 100%;
     margin: 0 0 10px 0;
 }
 
-.open-with-name-inputbox {
+.settings-open-with-name-inputbox {
     flex: 1;
     margin: 0 5px 0 0;
-    /* Equal width for first and third input */
 }
 
-.open-with-cmd-inputbox {
+.settings-open-with-cmd-inputbox {
     flex: 2;
     margin: 0 5px 0 0;
-    /* Expands to fill remaining space */
 }
 
-.open-with-args-inputbox {
+.settings-open-with-args-inputbox {
     flex: 2;
     margin: 0 5px 0 0;
-    /* Equal width for first and third input */
 }
 
-.open-with-btn {
+.settings-open-with-btn {
     flex: none;
     margin: 0 0 0 10px;
-    /* Button maintains its size */
 }
 
-.open-with-show-text {
+.settings-open-with-show-text {
     font-size: 0.8em;
     color: grey;
+}
+
+.settings-path-explorer-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 0 0 10px 0;
+}
+
+.settings-path-explorer-regex {
+    flex: 1;
+    margin: 0 10px 0 0;
+}
+
+.settings-path-explorer-label {
+    font-size: 0.8em;
+    color: grey;
+    margin: 0 10px 0 0;
+}
+
+.settings-path-explorer-dropdown {
+    flex: 1;
+    margin: 0 10px 0 0;
+}
+
+.settings-path-explorer-btn {
+    flex: none;
+    margin: 0 0 0 10px;
+}
+
+.path-explorer {
+    position: relative;
+    border: 1px solid #ccc;
+    padding: 10px;
+    font-family: Arial, sans-serif;
+}
+
+.path-explorer ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.path-explorer ul::before {
+    --indentation-guide-reading-indent: 0;
+}
+
+.path-explorer ul:scope>li {
+    --list-indent: 0;
+}
+
+.path-explorer li {
+    margin-left: 0;
+    padding: 0;
+}
+
+.path-explorer svg {
+    stroke: #aaa;
+    margin: 0 6px 0 0;
+    /* stroke: #5e34b0; */
+    vertical-align: middle;
+}
+
+.path-explorer svg:hover {
+    cursor: pointer;
+    /* stroke: #5e34b0; */
+    stroke: #8b5df5;
+}
+
+.path-explorer-error {
+    padding: 10px;
+    background-color: rgb(255, 175, 175);
+}
+
+.path-explorer a {
+    /* color: #5e34b0; */
+    color: #444;
+    text-decoration: none;
+    background-image: none;
+    padding: 0 10px 0 0;
+}
+
+.path-explorer a:hover {
+    color: #8b5df5;
+    /* color: #5e34b0; */
+    text-decoration: none;
+}
+
+.path-explorer-refresh-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    cursor: pointer;
+    padding: 10px;
+}
+
+.path-explorer-refresh-button svg {
+    stroke: #8b5df5;
+    margin: 0;
+    /* stroke: #5e34b0; */
 }

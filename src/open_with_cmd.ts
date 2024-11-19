@@ -1,6 +1,8 @@
 import { getAbsolutePathOfFile } from "file_manager";
 import { TAbstractFile, TFile, TFolder } from "obsidian";
 import open from "open";
+import path from "path";
+import { promises as fsa } from "fs";
 
 /**
  * It stores all the information to create a obsidian command with a check
@@ -29,8 +31,23 @@ export const ALL_VARS = [
 
 /**
  * Opens the file with the given command and arguments.
+ * @param cmd The command to open the file with.
+ * @param args The arguments to pass to the command.
+ * @param filePath The path of the file to open.
+ * @param folderPath The path of the folder containing the file.
+ * @param fileName The name of the file.
+ * @param folderName The name of the folder containing the file.
  */
-export async function openFile(file: TAbstractFile, cmd: string, args: string) {
+async function _openPath(
+	cmd: string,
+	args: string,
+	filePath: string,
+	folderPath: string,
+	fileName: string,
+	folderName: string
+) {
+	// Create the app object that will be passed to the open function.
+	// It contains the "name" of the app and the "arguments" to pass to it.
 	const app: { [key: string]: any } = {};
 	app.name = cmd;
 	args = args.trim();
@@ -38,23 +55,84 @@ export async function openFile(file: TAbstractFile, cmd: string, args: string) {
 		app.arguments = args.split(",");
 		app.arguments.forEach((arg: string, index: number) => {
 			arg = arg.trim();
-			const folder: TFolder =
-				file instanceof TFolder ? file : file.parent!;
 			arg = arg.includes(VAR_FILE_PATH)
-				? arg.replace(VAR_FILE_PATH, getAbsolutePathOfFile(file))
+				? arg.replace(VAR_FILE_PATH, filePath)
 				: arg;
 			arg = arg.includes(VAR_FOLDER_PATH)
-				? arg.replace(VAR_FOLDER_PATH, getAbsolutePathOfFile(folder))
+				? arg.replace(VAR_FOLDER_PATH, folderPath)
 				: arg;
 			arg = arg.includes(VAR_FILE_NAME)
-				? arg.replace(VAR_FILE_NAME, file.name)
+				? arg.replace(VAR_FILE_NAME, fileName)
 				: arg;
 			arg = arg.includes(VAR_FOLDER_NAME)
-				? arg.replace(VAR_FOLDER_NAME, folder.name)
+				? arg.replace(VAR_FOLDER_NAME, folderName)
 				: arg;
 			app.arguments[index] = arg;
 		});
 	}
 	//@ts-ignore
 	await open("", { app });
+}
+
+/**
+ * Opens the file with the given command and arguments.
+ * @param fileOrFolder The file/folder to open.
+ * @param cmd The command to open the file with.
+ * @param args The arguments to pass to the command.
+ */
+async function _openStringFile(
+	fileOrFolder: string,
+	cmd: string,
+	args: string
+) {
+	const stats = await fsa.stat(fileOrFolder);
+	const filePath = fileOrFolder;
+	const folderPath = stats.isDirectory()
+		? fileOrFolder
+		: path.dirname(fileOrFolder);
+	const fileName = path.basename(filePath);
+	const folderName = path.basename(folderPath);
+
+	await _openPath(cmd, args, filePath, folderPath, fileName, folderName);
+}
+
+/**
+ * Opens the file with the given command and arguments.
+ * @param fileOrFolder The file/folder to open.
+ * @param cmd The command to open the file with.
+ * @param args The arguments to pass to the command.
+ */
+async function _openTAbstractFile(
+	fileOrFolder: TAbstractFile,
+	cmd: string,
+	args: string
+) {
+	const folder: TFolder =
+		fileOrFolder instanceof TFolder ? fileOrFolder : fileOrFolder.parent!;
+	const filePath: string = getAbsolutePathOfFile(fileOrFolder);
+	const folderPath: string = getAbsolutePathOfFile(folder);
+	const fileName: string = fileOrFolder.name;
+	const folderName: string = folder.name;
+	await _openPath(cmd, args, filePath, folderPath, fileName, folderName);
+}
+
+/**
+ * Opens the file with the given command and arguments.
+ * @param fileOrFolder The file/folder to open. It can be a string path or an
+ * Obsidian's TAbstractFile.
+ * @param cmd The command to open the file with.
+ * @param args The arguments to pass to the command. It can contain the
+ * variables VAR_FILE_PATH, VAR_FOLDER_PATH, VAR_FILE_NAME and VAR_FOLDER_NAME
+ * that will be replaced by the corresponding values of the file.
+ */
+export async function openFile(
+	fileOrFolder: TAbstractFile | string,
+	cmd: string,
+	args: string
+) {
+	if (typeof fileOrFolder === "string") {
+		await _openStringFile(fileOrFolder, cmd, args);
+	} else {
+		await _openTAbstractFile(fileOrFolder, cmd, args);
+	}
 }

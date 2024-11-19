@@ -21,7 +21,8 @@
 		"tslib": "2.4.0",
 		"typescript": "4.7.4"
 	},
-    "dependencies": {
-        "open": "^8.2.1"
-    }
+	"dependencies": {
+		"ignore": "^6.0.2",
+		"open": "^8.2.1"
+	}
 }
