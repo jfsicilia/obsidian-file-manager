@@ -79,7 +79,6 @@ Added in version 1.2 a new `pathexplorer` codeblock it's available. For example
 if you write this codeblock in a note:
 
 ````
-
 ```pathexplorer
 # Path or paths to explore.
 path C:\projects\dev\dump_shortcuts
@@ -153,13 +152,19 @@ You will see something like this in the reader mode.
 > allowing the user to click and execute the command. Commands
 > are also added to the file/folder context menu.
 
+Using the settings tab, new custom _patterns_ can be created.
+
+![pathexplorer settings](./assets/pathexplorer_settings.png)
+
 ## Installation
 
 Select `File Manager` from the community available plugins.
 
 ## Configuration
 
-There's a settings tab for the plugin to customize behaviour.
+There's a general settings tab for the plugin to customize behaviour.
+
+**NOTE**: See `Open With...` and `pathexplorer` sections for more settings.
 
 ![Settings](./assets/settings.png)
 
