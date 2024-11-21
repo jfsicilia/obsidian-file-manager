@@ -1,10 +1,10 @@
 import {
 	App,
-	Plugin,
 	PluginSettingTab,
 	Setting,
 	Notice,
 	ButtonComponent,
+	setIcon,
 } from "obsidian";
 import {
 	VAR_FILE_PATH,
@@ -13,6 +13,7 @@ import {
 	VAR_FOLDER_PATH,
 } from "open_with_cmd";
 import FileManagerPlugin from "main";
+import { LucideIconPickerModal } from "icon_modal";
 
 import { FileConflictOptionDescription, FileConflictOption } from "conflict";
 
@@ -24,7 +25,29 @@ export interface AppCmd {
 	cmd: string;
 	args: string;
 	showInMenu: boolean;
+	icon: string;
 }
+
+export interface PathPattern {
+	regex: string;
+	applyTo: string;
+	appName: string;
+	icon: string;
+}
+
+interface DropdownOption {
+	value: string;
+	text: string;
+}
+
+export const APPLY_TO_FILES = "files";
+export const APPLY_TO_FOLDERS = "folders";
+export const APPLY_TO_FILES_AND_FOLDERS = "files and folders";
+const APPLY_TO: DropdownOption[] = [
+	{ value: APPLY_TO_FILES_AND_FOLDERS, text: "Files & Folders" },
+	{ value: APPLY_TO_FILES, text: "Files" },
+	{ value: APPLY_TO_FOLDERS, text: "Folders" },
+];
 
 /**
  * FileManager plugin settings
@@ -38,6 +61,7 @@ export interface FileManagerSettings {
 	newNoteName: string;
 	duplicateSuffix: string;
 	apps: AppCmd[];
+	patterns: PathPattern[];
 }
 
 // Default settings for the FileManager plugin
@@ -50,8 +74,14 @@ export const DEFAULT_SETTINGS: FileManagerSettings = {
 	newNoteName: "New Note.md",
 	duplicateSuffix: " - Copy",
 	apps: [],
+	patterns: [],
 };
 
+const DEFAULT_ICON = "circle-dashed";
+
+/**
+ * Converts plain html text to a html DocumetFragment.
+ */
 function htmlToFragment(html: string): DocumentFragment {
 	const range = document.createRange();
 	return range.createContextualFragment(html);
@@ -68,14 +98,10 @@ export class FileManagerSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		// -------------------------
-		// SECTION: General settings
-		// -------------------------
+	/**
+         SECTION: General settings
+    **/
+	generalSection(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName("Conflict resolution method")
 			.setDesc("Method to resolve conflicts in copy/move operations")
@@ -161,10 +187,12 @@ export class FileManagerSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+	}
 
-		// ---------------------
-		// SECTION: Open with...
-		// ---------------------
+	/** 
+        SECTION: Open with...
+    **/
+	openWithSection(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName("Open with...").setHeading();
 		const setting = new Setting(containerEl);
 		setting.setName("Add new application to open with");
@@ -194,35 +222,50 @@ export class FileManagerSettingTab extends PluginSettingTab {
 
 		// Create input boxes for the new command.
 		const inputContainer = containerEl.createDiv({
-			cls: "open-with-container",
+			cls: "settings-open-with-container",
 		});
+
+		let icon = DEFAULT_ICON;
+		const iconBtn = new ButtonComponent(inputContainer)
+			.setIcon(icon)
+			.setTooltip("Choose icon")
+			.setClass("open-with-icon-btn")
+			.onClick(() => {
+				new LucideIconPickerModal(this.app, (iconSelected) => {
+					icon = iconSelected;
+					if (icon) iconBtn.setIcon(icon);
+				}).open();
+			});
+
 		const nameInput = inputContainer.createEl("input", {
 			attr: { type: "text", placeholder: "Display name" },
-			cls: "open-with-name-inputbox",
+			cls: "settings-open-with-name-inputbox",
 		});
 		const cmdInput = inputContainer.createEl("input", {
 			attr: { type: "text", placeholder: "Command or full path command" },
-			cls: "open-with-cmd-inputbox",
+			cls: "settings-open-with-cmd-inputbox",
 		});
 		const argsInput = inputContainer.createEl("input", {
 			attr: { type: "text", placeholder: "Arguments (optional)" },
-			cls: "open-with-args-inputbox",
+			cls: "settings-open-with-args-inputbox",
 		});
 
 		// Create buttons to reset and add the new command.
 		new ButtonComponent(inputContainer)
 			.setIcon("rotate-ccw")
 			.setTooltip("Reset fields")
-			.setClass("open-with-btn")
+			.setClass("open-with-reset-btn")
 			.onClick(() => {
 				nameInput.value = "";
 				cmdInput.value = "";
 				argsInput.value = "";
+				icon = DEFAULT_ICON;
+				iconBtn.setIcon(icon);
 			});
 		new ButtonComponent(inputContainer)
 			.setIcon("circle-plus")
 			.setTooltip("Add command to open with...")
-			.setClass("open-with-btn")
+			.setClass("open-with-add-btn")
 			.onClick(async () => {
 				const name = nameInput.value.trim();
 				const cmd = cmdInput.value.trim();
@@ -241,28 +284,26 @@ export class FileManagerSettingTab extends PluginSettingTab {
 					this.plugin.createOpenWithCmd(name, cmd, args)
 				);
 
-				const newApp = { name, cmd, args, showInMenu: false };
-				// If the app already in the settings, update it.
-				let found = false;
-				for (const app of this.plugin.settings.apps) {
-					if (app.name !== newApp.name) continue;
-					app.cmd = newApp.cmd;
+				const newApp = { name, cmd, args, showInMenu: false, icon };
+				const apps = this.plugin.settings.apps;
+				const app = apps.find((app) => app.name === newApp.name);
+				if (app) {
+					new Notice(`Modifying ${newApp.name} command.`);
 					app.args = newApp.args;
-					found = true;
-					new Notice(`Modifying ${app.name} command.`);
-					break;
-				}
-				// If the app is not in the settings, add it.
-				if (!found) {
-					this.plugin.settings.apps.push(newApp);
+					app.cmd = newApp.cmd;
+					app.icon = newApp.icon;
+				} else {
+					apps.push(newApp);
 					new Notice(`Adding ${newApp.name} command.`);
 				}
+
 				await this.plugin.saveSettings();
 				this.display();
 			});
 
 		// Display all saved commands in the settings.
 		this.plugin.settings.apps.forEach((app) => {
+			if (!app.icon) app.icon = DEFAULT_ICON;
 			new Setting(containerEl)
 				.setName(app.name)
 				.setDesc(
@@ -273,7 +314,7 @@ export class FileManagerSettingTab extends PluginSettingTab {
 				.addToggle((toggle) => {
 					const showText = document.createElement("span");
 					showText.textContent = "Show in File-Menu ";
-					showText.classList.add("open-with-show-text");
+					showText.classList.add("settings-open-with-show-text");
 					// @ts-ignore
 					toggle.toggleEl.parentElement.prepend(showText);
 					toggle.setValue(app.showInMenu).onChange(async (value) => {
@@ -281,29 +322,181 @@ export class FileManagerSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				})
+				.addButton((btn) => {
+					btn.setIcon(app.icon)
+						.setTooltip("Icon for command")
+						.onClick(() => {
+							new LucideIconPickerModal(
+								this.app,
+								async (iconSelected) => {
+									app.icon = iconSelected;
+									if (app.icon) btn.setIcon(app.icon);
+									await this.plugin.saveSettings();
+								}
+							).open();
+						});
+				})
 				// Button to fill the commands fields with this command.
 				.addButton((btn) => {
-					btn.setIcon("rectangle-ellipsis")
-						.setTooltip("Fill fields with this command")
+					btn.setIcon("pen")
+						.setTooltip("Edit command")
 						.onClick(async () => {
 							nameInput.value = app.name;
 							cmdInput.value = app.cmd;
 							argsInput.value = app.args;
+							icon = app.icon;
+							iconBtn.setIcon(icon);
 						});
 				})
 				// Button to remove the command.0
 				.addButton((btn) => {
 					btn.setIcon("trash")
-						.setTooltip("Remove")
+						.setTooltip("Remove command")
 						.onClick(async () => {
-							new Notice(
-								"You need to restart Obsidian to effectively remove this command."
-							);
 							this.plugin.settings.apps.remove(app);
 							await this.plugin.saveSettings();
 							this.display();
 						});
 				});
 		});
+	}
+
+	/**
+        SECTION: Path Explorer settings
+    **/
+	pathExplorerSection(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Path explorer").setHeading();
+		let setting = new Setting(containerEl);
+		setting.setName(
+			"Define patterns to match files and folders and open them with an Open with... command."
+		);
+		const div = containerEl.createDiv({ cls: "setting-item-description" });
+		const helpMsg = `The <b>pathexplore</b> codeblock displays files and folders 
+        from a specified path or multiple paths. You can define <b>patterns</b> to 
+        match the names of files and/or folders, and bind an <b>Open with...</b> 
+        command to open them. For files and folders that match the patterns, an 
+        icon will appear next to their name (and they will also appear in the link 
+        context menu). Clicking the icon will open the file or folder using the 
+        associated command.<br><br>`;
+
+		div.appendChild(htmlToFragment(helpMsg));
+
+		// Create input boxes for the new command.
+		const container = containerEl.createDiv({
+			cls: "settings-path-explorer-container",
+		});
+		const regexInput = container.createEl("input", {
+			attr: { type: "text", placeholder: "Enter regular expression" },
+			cls: "settings-path-explorer-regex",
+		});
+		container.createEl("div", {
+			text: "Apply to: ",
+			cls: "settings-path-explorer-label",
+		});
+		const applyToDropdown = container.createEl("select", {
+			cls: "settings-path-explorer-dropdown dropdown",
+		});
+		APPLY_TO.map((applyTo) => applyToDropdown.createEl("option", applyTo));
+
+		container.createEl("div", {
+			text: "Open with: ",
+			cls: "settings-path-explorer-label",
+		});
+		const cmdDropdown = container.createEl("select", {
+			cls: "settings-path-explorer-dropdown dropdown",
+		});
+		const apps = this.plugin.settings.apps;
+		for (const app of apps.values()) {
+			cmdDropdown.createEl("option", { value: app.name, text: app.name });
+		}
+		new ButtonComponent(container)
+			.setIcon("rotate-ccw")
+			.setTooltip("Reset fields")
+			.setClass("settings-path-explorer-btn")
+			.onClick(() => {
+				regexInput.value = "";
+				applyToDropdown.selectedIndex = 0;
+				cmdDropdown.selectedIndex = 0;
+			});
+		new ButtonComponent(container)
+			.setIcon("circle-plus")
+			.setTooltip("Add pattern to open with...")
+			.setClass("settings-path-explorer-btn")
+			.onClick(async () => {
+				const regex = regexInput.value.trim();
+				const applyTo = applyToDropdown.value;
+				const appName = cmdDropdown.value;
+				const app = apps.find((app) => app.name === appName);
+				const icon = app?.icon || DEFAULT_ICON;
+				if (!regex || !appName)
+					return new Notice(
+						"Regular expression and Open with app are always neccessary."
+					);
+
+				const newPattern: PathPattern = {
+					regex,
+					applyTo,
+					appName,
+					icon,
+				};
+				const patterns = this.plugin.settings.patterns;
+				const pattern = patterns.find(
+					(pattern) =>
+						pattern.regex === newPattern.regex &&
+						pattern.appName === newPattern.appName
+				);
+				if (pattern) {
+					new Notice(`Modifiying ${newPattern.regex} pattern.`);
+					pattern.applyTo = newPattern.applyTo;
+				} else {
+					patterns.push(newPattern);
+					new Notice(`Adding ${newPattern.regex} pattern.`);
+				}
+				await this.plugin.saveSettings();
+				this.display();
+			});
+
+		// Display all saved commands in the settings.
+		this.plugin.settings.patterns.forEach((pattern) => {
+			const setting = new Setting(containerEl)
+				.setName(`${pattern.regex}`)
+				.setDesc(
+					`All matching ${pattern.applyTo} will
+                    be able to be open with ${pattern.appName}`
+				)
+				// Button to fill the commands fields with this command.
+				.addButton((btn) => {
+					btn.setIcon("pen")
+						.setTooltip("Edit command")
+						.onClick(async () => {
+							regexInput.value = pattern.regex;
+							applyToDropdown.value = pattern.applyTo;
+							cmdDropdown.value = pattern.appName;
+						});
+				})
+				// Button to remove the command.0
+				.addButton((btn) => {
+					btn.setIcon("trash")
+						.setTooltip("Remove command")
+						.onClick(async () => {
+							this.plugin.settings.patterns.remove(pattern);
+							await this.plugin.saveSettings();
+							this.display();
+						});
+				});
+			const icon = document.createElement("span");
+			setIcon(icon, pattern.icon);
+			setting.settingEl.prepend(icon);
+		});
+	}
+
+	display(): void {
+		const { containerEl } = this;
+
+		containerEl.empty();
+
+		this.generalSection(containerEl);
+		this.openWithSection(containerEl);
+		this.pathExplorerSection(containerEl);
 	}
 }

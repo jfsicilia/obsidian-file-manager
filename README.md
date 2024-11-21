@@ -1,38 +1,41 @@
 # File Manager Plugin for Obsidian
 
-This plugin enhances the Obsidian File Explorer by adding essential file management features. It introduces several new commands to interact with the `File Explorer`, allowing users to bind hotkeys to these operations. The goal is to enable complete file management within Obsidian using only the keyboard.
+This plugin enhances the Obsidian File Explorer by introducing essential file management features. It adds several new commands to interact with the `File Explorer`, allowing users to bind hotkeys for efficient keyboard-only file management. 
+
+**NOTE**: Version 1.2 introduces the new [`pathexplorer`](#pathexplorer-codeblock) codeblock. See [details](#pathexplorer-codeblock) below.
 
 ## Features
 
--   **Open with**: Open file/folders with custom commands.
--   **Go to file/folder**: Find and focus on a file/folder in the file explorer.
--   **Create subfolder**: Create a subfolder of current folder.
--   **Create folder**: Create sibling folder.
--   **Create note**: Create empty note in current folder.
--   **Duplicate**: Duplicate file/folder.
--   **Move**: Move selected files/folders to existing location.
--   **Copy**: Copy selected files/folders to existing location.
--   **Copy, Cut and Paste**: Copy or cut selected files/folders to clipboard and paste from it.
--   **Clear Clipboard**: Clear clipboard.
--   **Toggle Selection**: Toggle selection of file/folder.
--   **Select All**: Select all files/folders.
+-   **Open With**: Open files or folders using custom commands.
+-   **Go to File/Folder**: Locate and focus on a file or folder in the file explorer.
+-   **`pathexplorer` codeblock**: Display files and folders from specified paths and open them using custom commands.
+-   **Create Subfolder**: Create a subfolder within the current folder.
+-   **Create Folder**: Create a sibling folder.
+-   **Create Note**: Create an empty note in the current folder.
+-   **Duplicate**: Duplicate files or folders.
+-   **Move**: Move selected files or folders to a new location.
+-   **Copy**: Copy selected files or folders to a new location.
+-   **Copy, Cut, Paste**: Copy or cut selected files or folders to the clipboard and paste them.
+-   **Clear Clipboard**: Clear the clipboard contents.
+-   **Toggle Selection**: Toggle the selection of a file or folder.
+-   **Select All**: Select all files and folders.
 -   **Invert Selection**: Invert the current selection.
--   **Deselect All**: Clear selection.
--   **Rename**: Rename file/folder.
+-   **Deselect All**: Clear all selections.
+-   **Rename**: Rename files or folders.
 
 ### Copy/Move Conflict Resolution
 
-When a file conflict arises, you can either be prompted to choose a resolution or apply a predefined method:
+When file conflicts occur, choose from the following resolution methods:
 
--   **Overwrite**: Replace the existing file/folder.
--   **Skip**: Ignore the conflicting file/folder.
+-   **Overwrite**: Replace the existing file or folder.
+-   **Skip**: Ignore the conflicting file or folder.
 -   **Keep**: Retain both files by renaming the new one.
 
 ## Usage
 
 ### File Explorer Commands
 
-> **NOTE**: Only when you have the focus in the `File Explorer` panel, the following commands will be available.
+> **NOTE**: These commands are available only when the `File Explorer` panel is focused.
 
 -   `File Manager: Create a subfolder within the focused or active file/folder`.
 -   `File Manager: Create a folder as sibling of the focused or active file/folder`.
@@ -52,45 +55,119 @@ When a file conflict arises, you can either be prompted to choose a resolution o
 
 ### Global Commands
 
-> **NOTE**: The following command is available if there is a file explorer in Obsidian.
+> **NOTE**: The following command is available if a file explorer exists in Obsidian.
 
 -   `File Manager: Go to file or folder in file explorer`.
 
-> **NOTE**: The following command is globally available. If the file explorer is active,
-> the focused or selected file/folder will be used to Open With. If not, the
-> current active document in Obsidian, will be used to Open With.
+> **NOTE**: This command is globally available. If the file explorer is active, the focused or selected file/folder will be used for the `Open With` command. Otherwise, the currently active document will be used.
 
 -   `File Manager: Open with ...`
 
-Using the settings tab, new custom _open with_ commands can be created.
+Create custom `Open With` commands in the settings tab.
 
 ![Open With](./assets/openwith.png)
 
-The _open with_ commands are also available in the _File Context Menu_ if option is selected in the settings.
+The `Open With` commands are also available in the File Context Menu if enabled in the settings.
 
 <img src="./assets/contextmenu.png" width="200">
 
+### pathexplorer codeblock
+
+Version 1.2 introduces the `pathexplorer` codeblock. For example, adding the following codeblock to a note:
+
+````
+```pathexplorer
+# Path or paths to explore.
+path C:\projects\dev\dump_shortcuts
+
+# If present include dump_shortcuts as root of files and folders. 
+include-root
+
+# Use .gitignore syntax to ignore files/folders.
+ignore .git/
+ignore .venv/
+ignore old/
+ignore build/
+ignore dist/
+ignore test*/
+ignore __pycache__/
+ignore .*
+ignore *.bat
+ignore *.spec
+
+# Define max-depth (default 1)
+max-depth 3
+
+# Define max-files (default 100)
+max-files 20 
+```
+````
+
+Will render the following output in reader mode:
+
+![Settings](./assets/pathexplorer.png)
+
+#### `pathexplorer` codeblock syntax.
+
+> **#** 
+> 
+> For line comments
+> 
+> **path \<relative or absolute path\>**
+> 
+> Specify paths to explore. Multiple paths can be defined, one per line.
+> 
+> **include-root**
+>
+> Include the root folder as the parent of its children.
+>
+> **max-depth**
+>
+> Max depth level to explore in the tree.
+>
+> **max-files**
+>
+> Max number of files/folders to display.
+>
+> **ignore**
+>
+> Ignore files/folders using `.gitignore` patterns. Inverted patterns (`!<pattern>`) are also supported.  Multiple ignore patterns can be defined, one per line.
+>
+> **flat [\<none\> | hide-files | hide-folders]**
+>
+> Display files and folders as a list without hierarchy. Use optional flags to hide files or folders.
+>
+> **hide-icons**
+>
+> Hide command icons next to files/folders.
+
+Create custom patterns in the settings tab.
+
+![pathexplorer settings](./assets/pathexplorer_settings.png)
+
 ## Installation
 
-Select `File Manager` from the community available plugins.
+Install `File Manager` from the Community Plugins section.
 
 ## Configuration
 
-There's a settings tab for the plugin to customize behaviour.
+Customize plugin behavior using the general settings tab.
+
+**NOTE**: Refer to the `Open With` and `pathexplorer` sections for additional settings.
 
 ![Settings](./assets/settings.png)
 
 ## Development
 
-1. Clone this repository into the `.obsidian/plugins` folder of an obsidian Vault.
-2. Ensure your NodeJS version is at least v16 (`node --version`).
+1. Clone this repository into the `.obsidian/plugins` folder of an Obsidian Vault.
+2. Ensure Node.js version is at least v16 (`node --version`).
 3. Run `npm install` to install dependencies.
 4. Run `npm run dev` to start compilation in watch mode.
-5. In obsidian settings turn on `File Manager` plugin.
+5. Enable the `File Manager` plugin in Obsidian settings.
 
 ## Support
 
-For any issues or feature requests, please open an issue on the GitHub repository.
+For issues or feature requests, open an issue on the GitHub repository.
 
 ## License
 
@@ -98,12 +175,13 @@ This plugin is licensed under the MIT License.
 
 ## Roadmap
 
--   Implement **merge** for folders copy/move.
--   After copying/moving files, autoselect files on destination.
+-   Add **merge** functionality for folder copy/move.
+-   Auto-select files in the destination after copying/moving.
 
 ## Acknowledgments
 
-This plugin has been inspired by the following plugins. Thanks in advance to all the developers.
+This plugin was inspired by the following plugins. Thanks to their developers:
 
 -   [Obsidian Open With](https://github.com/phibr0/obsidian-open-with)
 -   [Obsidian File Explorer Count](https://github.com/ozntel/file-explorer-note-count)
+

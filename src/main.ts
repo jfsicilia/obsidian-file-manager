@@ -1,13 +1,5 @@
-import {
-	App,
-	Menu,
-	TFile,
-	TAbstractFile,
-	Notice,
-	Plugin,
-	TFolder,
-	FuzzySuggestModal,
-} from "obsidian";
+import fs from "fs";
+import { Menu, TFile, TAbstractFile, Notice, Plugin, TFolder } from "obsidian";
 
 import { FileOrFolderItem, MockTree } from "obsidian-internals";
 
@@ -26,6 +18,8 @@ import {
 } from "settings";
 
 import { OpenWithCmd, openFile } from "open_with_cmd";
+import { PathExplorer, HREF_FILE_PREFIX } from "path_explorer";
+import { SuggestPathModal } from "path_modal";
 
 // Used to keep track of whether the user is copying or moving files
 enum FileOperation {
@@ -58,6 +52,8 @@ export default class FileManagerPlugin extends Plugin {
 
 	// The file manager instance that provides file operations.
 	private fm: FileManager = new FileManager(this);
+
+	private pe: PathExplorer = new PathExplorer(this);
 
 	// We keep track of the selected files/folders for a cut/copy operation.
 	private clipboard: Map<string, string> | null;
@@ -256,7 +252,7 @@ export default class FileManagerPlugin extends Plugin {
 	}
 
 	/**
-	 * Patch fileExplorer.tree.selectItem and fileExplorer.tree.deselectItem to
+	 * Monkey patch fileExplorer.tree.selectItem and fileExplorer.tree.deselectItem to
 	 * update selected files/folders in status bar.
 	 */
 	patchFileExplorerSelectionFunctions() {
@@ -292,16 +288,59 @@ export default class FileManagerPlugin extends Plugin {
 		this.settings = DEFAULT_SETTINGS;
 		await this.loadSettings();
 
-		// Create status bar items for selected files/folders and clipboard.
-		this.selectedStatusBar = this.addStatusBarItem();
-		this.clipboardStatusBar = this.addStatusBarItem();
-
-		// Patch fileExplorer selection/deselection functions to update status
+		// Monkey patch fileExplorer selection/deselection functions to update status
 		// bar on selection/deselection of files/folders.
 		this.app.workspace.onLayoutReady(() => {
 			this.patchFileExplorerSelectionFunctions();
 		});
 
+		this.registerStatusBarItems();
+		this.registerVaultEvents();
+		this.registerMarkdownCodeBlockProcessors();
+		this.registerCommands();
+		this.registerContextMenus();
+		this.addSettingTab(new FileManagerSettingTab(this.app, this));
+	}
+
+	onunload() {}
+
+	/**
+	 * Returns the conflict resolution method to use when a file conflict occurs.
+	 */
+	async getFileConflictResolutionMethod(
+		path: string
+	): Promise<[FileConflictResolution, boolean]> {
+		const option = this.settings.conflictResolutionMethod;
+		if (option === FileConflictOption.PROMPT)
+			return await new ConflictModal(this.app, path).openAndWait();
+		return [option as FileConflictResolution, true];
+	}
+
+	async loadSettings() {
+		this.settings = { ...this.settings, ...(await this.loadData()) };
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+
+		// Update the status bar to reflect the new settings.
+		this.showClipboardInStatusBar();
+		this.showSelectedInStatusBar();
+	}
+
+	/**
+	 * Register all the status bar items for the plugin.
+	 */
+	registerStatusBarItems() {
+		// Create status bar items for selected files/folders and clipboard.
+		this.selectedStatusBar = this.addStatusBarItem();
+		this.clipboardStatusBar = this.addStatusBarItem();
+	}
+
+	/**
+	 * Register all the vault events for the plugin.
+	 */
+	registerVaultEvents() {
 		// Update selected files/folders and clipboard in status bar whenever
 		// there is a delete event.
 		this.app.vault.on("delete", (file: TAbstractFile) => {
@@ -314,8 +353,71 @@ export default class FileManagerPlugin extends Plugin {
 			// Always update the selected files/folders in the status bar.
 			this.showSelectedInStatusBar();
 		});
+	}
 
-		// Create commands.
+	/**
+	 * Register all the markdown code block processors for the plugin.
+	 **/
+	registerMarkdownCodeBlockProcessors() {
+		this.registerMarkdownCodeBlockProcessor(
+			"pathexplorer",
+			async (source, el, ctx) => this.pe.processCodeBlock(source, el)
+		);
+	}
+
+	/**
+	 * Register all the context menus for the plugin.
+	 */
+	registerContextMenus() {
+		// Create file-menu Open With... items from saved settings.
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu: Menu, file: TFile) => {
+				this.settings.apps.forEach((app) => {
+					if (!app.showInMenu) return;
+					menu.addItem((item) => {
+						item.setTitle(`Open with ${app.name}`)
+							.setIcon(app.icon)
+							.onClick(
+								async () =>
+									await openFile(file, app.cmd, app.args)
+							);
+					});
+				});
+			})
+		);
+
+		// Create url-menu Open With... items from saved settings.
+		this.registerEvent(
+			this.app.workspace.on("url-menu", (menu, url) => {
+				if (!url.startsWith(HREF_FILE_PREFIX)) return;
+				const path = decodeURI(url.replace(HREF_FILE_PREFIX, ""));
+				const apps = this.settings.apps;
+				const patterns = this.settings.patterns;
+				for (const pattern of patterns) {
+					const app = PathExplorer.matchPattern(
+						pattern,
+						path,
+						fs.statSync(path).isDirectory(),
+						apps
+					);
+					if (!app) continue;
+
+					menu.addItem((item) => {
+						item.setTitle(`Open with ${app.name}`)
+							.setIcon(app.icon)
+							.onClick(async () => {
+								await openFile(path, app.cmd, app.args);
+							});
+					});
+				}
+			})
+		);
+	}
+
+	/**
+	 * Register all the commands for the plugin.
+	 */
+	registerCommands() {
 		this.addCommand({
 			id: "create-subfolder",
 			name: "Create a subfolder within the focused or active file/folder",
@@ -519,87 +621,5 @@ export default class FileManagerPlugin extends Plugin {
 				this.createOpenWithCmd(app.name, app.cmd, app.args)
 			);
 		});
-
-		// Create dynamic Open With menu from saved settings.
-		this.registerEvent(
-			this.app.workspace.on("file-menu", (menu: Menu, file: TFile) => {
-				this.settings.apps.forEach((app) => {
-					if (!app.showInMenu) return;
-					menu.addItem((item) => {
-						item.setTitle(`Open with ${app.name}`)
-							.setIcon("popup-open")
-							.onClick(
-								async () =>
-									await openFile(file, app.cmd, app.args)
-							);
-					});
-				});
-			})
-		);
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new FileManagerSettingTab(this.app, this));
-	}
-
-	onunload() {}
-
-	/**
-	 * Returns the conflict resolution method to use when a file conflict occurs.
-	 */
-	async getFileConflictResolutionMethod(
-		path: string
-	): Promise<[FileConflictResolution, boolean]> {
-		const option = this.settings.conflictResolutionMethod;
-		if (option === FileConflictOption.PROMPT)
-			return await new ConflictModal(this.app, path).openAndWait();
-		return [option as FileConflictResolution, true];
-	}
-
-	async loadSettings() {
-		this.settings = { ...this.settings, ...(await this.loadData()) };
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-
-		// Update the status bar to reflect the new settings.
-		this.showClipboardInStatusBar();
-		this.showSelectedInStatusBar();
-	}
-}
-
-/**
- * A modal that suggests folders to the user.
- */
-class SuggestPathModal extends FuzzySuggestModal<TAbstractFile> {
-	constructor(
-		app: App,
-		// The folders to suggest to the user
-		private folders: TAbstractFile[],
-		// The function to execute when the user selects a folder
-		private toDo: (path: string) => Promise<void>
-	) {
-		super(app);
-	}
-
-	/**
-	 * Returns the folders to suggest to the user.
-	 */
-	getItems(): TAbstractFile[] {
-		return this.folders;
-	}
-
-	/**
-	 * Returns the text to display for a folder.
-	 */
-	getItemText(folder: TAbstractFile): string {
-		return folder.path;
-	}
-
-	/**
-	 * Executes the function toDo when the user selects a folder.
-	 */
-	onChooseItem(folder: TAbstractFile, evt: MouseEvent | KeyboardEvent) {
-		(async () => await this.toDo(folder.path))();
 	}
 }

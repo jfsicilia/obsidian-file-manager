@@ -30,6 +30,7 @@ export function getVaultAbsolutePath(): string {
 
 	return "";
 }
+
 /**
  * Returns the absolute path of a file in the vault. It takes into account
  * the platform and the path separator.
