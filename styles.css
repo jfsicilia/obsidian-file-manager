@@ -34,7 +34,7 @@ If your plugin does not need CSS, delete this file.
 
 .settings-open-with-show-text {
     font-size: 0.8em;
-    color: grey;
+    color: var(--color-base-60);
 }
 
 .settings-path-explorer-container {
@@ -51,7 +51,7 @@ If your plugin does not need CSS, delete this file.
 
 .settings-path-explorer-label {
     font-size: 0.8em;
-    color: grey;
+    color: var(--color-base-60);
     margin: 0 10px 0 0;
 }
 
@@ -67,7 +67,7 @@ If your plugin does not need CSS, delete this file.
 
 .path-explorer {
     position: relative;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-base-40);
     padding: 10px;
     font-family: Arial, sans-serif;
 }
@@ -91,34 +91,30 @@ If your plugin does not need CSS, delete this file.
 }
 
 .path-explorer svg {
-    stroke: #aaa;
+    stroke: var(--color-base-40);
     margin: 0 6px 0 0;
-    /* stroke: #5e34b0; */
     vertical-align: middle;
 }
 
 .path-explorer svg:hover {
     cursor: pointer;
-    /* stroke: #5e34b0; */
-    stroke: #8b5df5;
+    stroke: var(--interactive-accent);
 }
 
 .path-explorer-error {
     padding: 10px;
-    background-color: rgb(255, 175, 175);
+    background-color: var(--color-red);
 }
 
 .path-explorer a {
-    /* color: #5e34b0; */
-    color: #444;
+    color: var(--text-normal);
     text-decoration: none;
     background-image: none;
     padding: 0 10px 0 0;
 }
 
 .path-explorer a:hover {
-    color: #8b5df5;
-    /* color: #5e34b0; */
+    color: var(--interactive-accent);
     text-decoration: none;
 }
 
@@ -131,7 +127,6 @@ If your plugin does not need CSS, delete this file.
 }
 
 .path-explorer-refresh-button svg {
-    stroke: #8b5df5;
+    stroke: var(--interactive-accent);
     margin: 0;
-    /* stroke: #5e34b0; */
 }
