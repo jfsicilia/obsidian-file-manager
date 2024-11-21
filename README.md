@@ -177,6 +177,7 @@ This plugin is licensed under the MIT License.
 
 -   Add **merge** functionality for folder copy/move.
 -   Auto-select files in the destination after copying/moving.
+-   Add **sorting** customization to `pathexplorer` codeblock.
 
 ## Acknowledgments
 
