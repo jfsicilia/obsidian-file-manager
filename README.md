@@ -67,7 +67,7 @@ Create custom `Open With` commands in the settings tab.
 
 ![Open With](./assets/openwith.png)
 
-**NEW:** Version 1.2.2 allows to define app URL Schemas as commands (for example: `ulysses://x-callback-url/open?path={{file_path}}`).
+**NEW:** Version 1.3.1 allows to define app URL Schemas as commands (for example: `ulysses://x-callback-url/open?path={{file_path}}`).
 
 The `Open With` commands are also available in the File Context Menu if enabled in the settings.
 

@@ -217,7 +217,7 @@ export class FileManagerSettingTab extends PluginSettingTab {
 
 		    <b>NOTE:</b> No need to add double quotes for paths with spaces.<BR><BR>
 
-            <b>New from 1.2.2:</b> You can also define an App URL Schema as a command (for example 
+            <b>New from 1.3.1:</b> You can also define an App URL Schema as a command (for example 
             <i>ulysses://x-callback-url/open?path=${VAR_FILE_PATH}</i>). When 
             defining an App URL Schema, arguments will be ignored.<BR><BR> `;
 		div.appendChild(htmlToFragment(helpMsg));

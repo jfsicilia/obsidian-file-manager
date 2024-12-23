@@ -71,7 +71,7 @@ async function _openPath(
 	fileName: string,
 	folderName: string
 ) {
-	// From version 1.2.2 the command could also be an App URL Schema (the
+	// From version 1.3.1 the command could also be an App URL Schema (the
 	// command contains "://"). In this case variables could appear in the URL
 	// Schema, so we replace them and open it with the browser. Arguments are
 	// not supported in this case.
