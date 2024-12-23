@@ -21,6 +21,9 @@ export const VAR_FOLDER_PATH = "{{folder_path}}";
 export const VAR_FILE_NAME = "{{file_name}}";
 export const VAR_FOLDER_NAME = "{{folder_name}}";
 
+// URL Schema separator.
+const URL_SCHEMA = "://";
+
 // All the variables that can be replaced in the command arguments.
 export const ALL_VARS = [
 	VAR_FILE_NAME,
@@ -28,6 +31,28 @@ export const ALL_VARS = [
 	VAR_FOLDER_NAME,
 	VAR_FOLDER_PATH,
 ];
+
+function _replaceVar(
+	text: string,
+	filePath: string,
+	folderPath: string,
+	fileName: string,
+	folderName: string
+) {
+	text = text.includes(VAR_FILE_PATH)
+		? text.replace(VAR_FILE_PATH, filePath)
+		: text;
+	text = text.includes(VAR_FOLDER_PATH)
+		? text.replace(VAR_FOLDER_PATH, folderPath)
+		: text;
+	text = text.includes(VAR_FILE_NAME)
+		? text.replace(VAR_FILE_NAME, fileName)
+		: text;
+	text = text.includes(VAR_FOLDER_NAME)
+		? text.replace(VAR_FOLDER_NAME, folderName)
+		: text;
+	return text;
+}
 
 /**
  * Opens the file with the given command and arguments.
@@ -46,6 +71,16 @@ async function _openPath(
 	fileName: string,
 	folderName: string
 ) {
+	// From version 1.2.2 the command could also be an App URL Schema (the
+	// command contains "://"). In this case variables could appear in the URL
+	// Schema, so we replace them and open it with the browser. Arguments are
+	// not supported in this case.
+	if (cmd.includes(URL_SCHEMA)) {
+		cmd = _replaceVar(cmd, filePath, folderPath, fileName, folderName);
+		window.open(cmd);
+		return;
+	}
+
 	// Create the app object that will be passed to the open function.
 	// It contains the "name" of the app and the "arguments" to pass to it.
 	const app: { [key: string]: any } = {};
@@ -55,18 +90,7 @@ async function _openPath(
 		app.arguments = args.split(",");
 		app.arguments.forEach((arg: string, index: number) => {
 			arg = arg.trim();
-			arg = arg.includes(VAR_FILE_PATH)
-				? arg.replace(VAR_FILE_PATH, filePath)
-				: arg;
-			arg = arg.includes(VAR_FOLDER_PATH)
-				? arg.replace(VAR_FOLDER_PATH, folderPath)
-				: arg;
-			arg = arg.includes(VAR_FILE_NAME)
-				? arg.replace(VAR_FILE_NAME, fileName)
-				: arg;
-			arg = arg.includes(VAR_FOLDER_NAME)
-				? arg.replace(VAR_FOLDER_NAME, folderName)
-				: arg;
+			arg = _replaceVar(arg, filePath, folderPath, fileName, folderName);
 			app.arguments[index] = arg;
 		});
 	}

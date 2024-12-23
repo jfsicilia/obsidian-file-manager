@@ -207,8 +207,6 @@ export class FileManagerSettingTab extends PluginSettingTab {
             <b>${VAR_FILE_NAME}</b> - File name<BR>
             <b>${VAR_FOLDER_NAME}</b> - Folder name<BR><BR>
 
-            If no arguments are provided, the <i>${VAR_FILE_PATH}</i> variable
-            will be added automatically as argument for the command.<BR><BR>
             Sometimes the command needs the arguments to be send independently, 
             you can separate arguments using commas in those cases.<BR><BR>
 
@@ -275,8 +273,6 @@ export class FileManagerSettingTab extends PluginSettingTab {
 						"Display name & path/command are always neccessary."
 					);
 				}
-				// If no arguments are provided, add the file path as argument.
-				if (!args) args = VAR_FILE_PATH;
 
 				// Add command to open with the app. If there was an obsidian
 				// command in the plugin with the same name, it will be replaced.
