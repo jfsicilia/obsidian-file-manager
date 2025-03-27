@@ -120,6 +120,32 @@ export default class FileManagerPlugin extends Plugin {
 	}
 
 	/**
+	 * Helper function that checks if there is an active note,
+	 * if so a command (operation) can run.
+	 */
+	isActiveNoteCallback(
+		checking: boolean,
+		operation: (...args: any[]) => any,
+		...args: any[]
+	): boolean {
+		const func = () => this.app.workspace.getActiveFile() instanceof TFile;
+		return this._checkCallback(checking, func, operation, ...args);
+	}
+
+	/**
+	 * Helper function that checks if there is an active note,
+	 * if so a command (operation) can run asynchronously.
+	 */
+	isActiveNoteAsyncCallback(
+		checking: boolean,
+		operation: (...args: any[]) => Promise<any>,
+		...args: any[]
+	): boolean {
+		const func = () => this.app.workspace.getActiveFile() instanceof TFile;
+		return this._checkAsyncCallback(checking, func, operation, ...args);
+	}
+
+	/**
 	 * Helper function that checks if there is a file explorer active,
 	 * if so a command (operation) can run.
 	 */
@@ -534,6 +560,31 @@ export default class FileManagerPlugin extends Plugin {
 				}),
 		});
 		this.addCommand({
+			id: "move-note",
+			name: "Move active note to a new folder",
+			checkCallback: (checking: boolean) =>
+				this.isActiveNoteCallback(checking, () => {
+					new SuggestPathModal(
+						this.app,
+						this.app.vault.getAllFolders(true),
+						async (path: string) => {
+							const activeFile =
+								this.app.workspace.getActiveFile();
+							if (!activeFile) return;
+
+							// Move note to new folder.
+							const note = new Map<string, string>();
+							note.set(activeFile.path, activeFile.name);
+							const stats = await this.fm.moveFiles(path, note);
+							if (this.settings.showCopyMoveStats)
+								new Notice(
+									"Move stats:\n\n" + statsToString(stats)
+								);
+						}
+					).open();
+				}),
+		});
+		this.addCommand({
 			id: "copy-files",
 			name: "Copy selected files/folders to a new folder",
 			checkCallback: (checking: boolean) =>
@@ -605,9 +656,37 @@ export default class FileManagerPlugin extends Plugin {
 						...this.app.vault.getAllFolders(true),
 						...this.app.vault.getFiles(),
 					];
+					// If available, add the parent folder of the active file
+					// to the beginning of the list.
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile && activeFile.parent instanceof TFolder)
+						allFilesAndFolders.unshift(activeFile.parent);
+
 					new SuggestPathModal(
 						this.app,
 						allFilesAndFolders,
+						async (path: string) => {
+							this.fm.focusPath(path);
+						}
+					).open();
+				}),
+		});
+
+		this.addCommand({
+			id: "go-to-folder_in-file-explorer",
+			name: "Go to folder in file explorer",
+			checkCallback: (checking: boolean) =>
+				this.isFileExplorerAvailableCallback(checking, () => {
+					const allFolders = this.app.vault.getAllFolders(true);
+					// If available, add the parent folder of the active file
+					// to the beginning of the list.
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile && activeFile.parent instanceof TFolder)
+						allFolders.unshift(activeFile.parent);
+
+					new SuggestPathModal(
+						this.app,
+						allFolders,
 						async (path: string) => {
 							this.fm.focusPath(path);
 						}

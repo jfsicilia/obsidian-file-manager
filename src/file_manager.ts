@@ -627,7 +627,19 @@ export class FileManager {
 	}
 
 	/**
-	 * Moves the selected files/folders in the file explorer to the specified `path`.
+	 * Moves the selected files/folders in the file explorer to the specified
+	 * `path`.
+	 *
+	 * @param path - The destination path where the selected files/folders will
+	 * be moved.
+	 * @param pathToName - A map where the key is the source path of the selected
+	 * files/folders, and the value is the destination name. If null, it will
+	 * use the selected files/folders in the file explorer.
+	 * @param resolve - The conflict resolution strategy to use when a
+	 * file/folder with the same name already exists at the destination. If
+	 * null, the user will be prompted to choose a resolution.
+	 * @returns A map where the key is the destination path and the value is the
+	 * conflict resolution applied (or null if no conflict occurred).
 	 */
 	async moveFiles(
 		path: string,

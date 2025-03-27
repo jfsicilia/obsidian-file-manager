@@ -2,13 +2,15 @@
 
 This plugin enhances the Obsidian File Explorer by introducing essential file management features. It adds several new commands to interact with the `File Explorer`, allowing users to bind hotkeys for efficient keyboard-only file management. 
 
-**NOTE**: Version 1.2 introduces the new [`pathexplorer`](#pathexplorer-codeblock) codeblock. See [details](#pathexplorer-codeblock) below.
+**Version 1.2**: Introduces the new [`pathexplorer`](#pathexplorer-codeblock) codeblock. See [details](#pathexplorer-codeblock) below.
+
+**Version 1.3**: Introduces the ability to use URL schemas as commands in `Open With...`.
+
+**Version 1.4**: Introduces `move note` and `go to folder` commands. `Pathexplorer` can show now absolute paths and you can use environment variables in the `paths`.
 
 ## Features
 
 -   **Open With**: Open files or folders using custom commands.
--   **Go to File/Folder**: Locate and focus on a file or folder in the file explorer.
--   **`pathexplorer` codeblock**: Display files and folders from specified paths and open them using custom commands.
 -   **Create Subfolder**: Create a subfolder within the current folder.
 -   **Create Folder**: Create a sibling folder.
 -   **Create Note**: Create an empty note in the current folder.
@@ -22,6 +24,20 @@ This plugin enhances the Obsidian File Explorer by introducing essential file ma
 -   **Invert Selection**: Invert the current selection.
 -   **Deselect All**: Clear all selections.
 -   **Rename**: Rename files or folders.
+
+*Version 1.1*
+
+-   **Go to File/Folder**: Locate and focus on a file or folder in the file explorer.
+-   **Open file/folder with...**: Open file or folder in the file explorer with custom program.
+
+*Version 1.2*
+
+-   **`pathexplorer` codeblock**: Display files and folders from specified paths and open them using custom commands.
+
+*Version 1.4*
+
+-   **Move note**: Move active note to a new location.
+-   **Go to Folder**: Locate and focus on a folder in the file explorer.
 
 ### Copy/Move Conflict Resolution
 
@@ -53,15 +69,29 @@ When file conflicts occur, choose from the following resolution methods:
 -   `File Manager: Invert selection`.
 -   `File Manager: Rename focused or active file/folder`.
 
-### Global Commands
-
-> **NOTE**: The following command is available if a file explorer exists in Obsidian.
+*Version 1.1*
 
 -   `File Manager: Go to file or folder in file explorer`.
+-   `File Manager: Open with <command>`.
+
+*Version 1.4*
+
+-   `File Manager: Move active note to a new folder`.
+-   `File Manager: Go to folder in file explorer`.
+
+
+#### Global Commands
+
+> **NOTE**: The following commands are available if a file explorer exists in Obsidian.
+
+-   `File Manager: Go to file or folder in file explorer`.
+-   `File Manager: Go to folder in file explorer`.
 
 > **NOTE**: This command is globally available. If the file explorer is active, the focused or selected file/folder will be used for the `Open With` command. Otherwise, the currently active document will be used.
 
 -   `File Manager: Open with ...`
+
+### Open with...
 
 Create custom `Open With` commands in the settings tab.
 
@@ -80,7 +110,9 @@ Version 1.2 introduces the `pathexplorer` codeblock. For example, adding the fol
 ````
 ```pathexplorer
 # Path or paths to explore.
-path C:\projects\dev\dump_shortcuts
+path $HOME/dev/dump_shortcuts
+path c:\tools\obsidian
+path %USERPROFILE%\projects
 
 # If present include dump_shortcuts as root of files and folders. 
 include-root
@@ -116,6 +148,10 @@ Will render the following output in reader mode:
 > For line comments
 > 
 > **path \<relative or absolute path\>**
+>
+> *Version 1.4*
+>
+> Now you can use environment variables in the path. The Linux/Mac format (`$<var>`) and the Windows format (`%<var>%`) can be used interchangeably. On Windows, the `HOME` environment variable will be translated to `USERPROFILE` if it does not exist.
 > 
 > Specify paths to explore. Multiple paths can be defined, one per line.
 > 
@@ -142,6 +178,13 @@ Will render the following output in reader mode:
 > **hide-icons**
 >
 > Hide command icons next to files/folders.
+>
+> *Version 1.4*
+>
+> **absolute-path [\<none\> | all | root]**
+>
+> Display absolute path on folders. By default `none` is used (no absolute paths). `all` flag shows absolute path in every folder. `root` flag show absolute path in root folder.
+
 
 Create custom patterns in the settings tab.
 

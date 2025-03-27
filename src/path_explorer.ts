@@ -25,6 +25,17 @@ interface TreeNode {
 	children?: TreeNode[];
 }
 
+// Constants for the pathexplorer codeblock.
+const MAX_DEPTH = 3;
+const MAX_FILES = 100;
+// Options for the flat parameter.
+const HIDE_FILES_PARAM = "hide-files";
+const HIDE_FOLDERS_PARAM = "hide-folders";
+// Options for the showAbsolutePath parameter.
+const ALL_PATHS = "all";
+const ROOT_PATH = "root";
+const NO_PATH = "none";
+
 // Configuration for the pathexplorer codeblock.
 interface PathExplorerConfig {
 	// Required. The paths to explore (1 or many).
@@ -45,19 +56,22 @@ interface PathExplorerConfig {
 	hideFiles: boolean;
 	// If true, hide Open with.. icons.
 	hideIcons: boolean;
+	// Show absolute path in the tree.
+	showAbsolutePath: typeof ALL_PATHS | typeof ROOT_PATH | typeof NO_PATH;
 }
 
 // Default configuration for the pathexplorer codeblock.
 const DEFAULT_CONFIG: PathExplorerConfig = {
 	paths: [],
 	ignorePatterns: [],
-	maxDepth: 3,
-	maxFiles: 100,
+	maxDepth: MAX_DEPTH,
+	maxFiles: MAX_FILES,
 	includeRoot: false,
 	flat: false,
 	hideFiles: false,
 	hideFolders: false,
 	hideIcons: false,
+	showAbsolutePath: NO_PATH,
 };
 
 // If a line in a pathexplorer codeblock starts with COMMENT_TOKEN, it's ignored.
@@ -76,9 +90,8 @@ const MAX_DEPTH_PARAM = "max-depth";
 const MAX_FILES_PARAM = "max-files";
 const INCLUDE_ROOT_PARAM = "include-root";
 const FLAT_PARAM = "flat";
-const HIDE_FILES_PARAM = "hide-files";
-const HIDE_FOLDERS_PARAM = "hide-folders";
 const HIDE_ICONS_PARAM = "hide-icons";
+const ABSOLUTE_PATH = "absolute-path";
 
 /**
  * Exception class for PathExplorer. Used if any error comes up when parsing
@@ -236,7 +249,20 @@ export class PathExplorer {
 						pathExplorer.hideFolders = true;
 					else if (value)
 						throw new PathExplorerException(
-							`Invalid flat option. Valid options: [${HIDE_FILES_PARAM}|${HIDE_FOLDERS_PARAM}|<none>]`
+							`Invalid ${FLAT_PARAM} option. Valid options: [${HIDE_FILES_PARAM}|${HIDE_FOLDERS_PARAM}|<none>]`
+						);
+					break;
+
+				case ABSOLUTE_PATH:
+					if (value === ALL_PATHS)
+						pathExplorer.showAbsolutePath = ALL_PATHS;
+					else if (value === ROOT_PATH)
+						pathExplorer.showAbsolutePath = ROOT_PATH;
+					else if (value === NO_PATH)
+						pathExplorer.showAbsolutePath = NO_PATH;
+					else
+						throw new PathExplorerException(
+							`Invalid ${ABSOLUTE_PATH} option. Valid options: [${ALL_PATHS}|${ROOT_PATH}|${NO_PATH}]`
 						);
 					break;
 
@@ -250,8 +276,28 @@ export class PathExplorer {
 				"Path not provided (examples path /my/path | path ../relative | path c:\\my\\path)."
 			);
 
-		// Check if the paths provided exist
 		for (let i = 0; i < pathExplorer.paths.length; i++) {
+			// Substitute environment variables in the path. Could be in Unix
+			// format ($HOME) or Windows format (%USERPROFILE%).
+			// HOME will be replaced by USERPROFILE if HOME is not defined.
+			pathExplorer.paths[i] = pathExplorer.paths[i].replace(
+				/\$([A-Za-z_][A-Za-z0-9_]*)|%([A-Za-z_][A-Za-z0-9_]*)%/g,
+				(_, unixEnvVar, winEnvVar) => {
+					const envVar = unixEnvVar || winEnvVar;
+					if (
+						envVar === "HOME" &&
+						!process.env.HOME &&
+						process.env.USERPROFILE
+					)
+						return process.env.USERPROFILE;
+
+					return (
+						process.env[envVar] ||
+						`$${unixEnvVar || `%${winEnvVar}%`}`
+					);
+				}
+			);
+
 			// If the path is relative, convert it to absolute adding vault path
 			// and the current file's parent path.
 			if (!path.isAbsolute(pathExplorer.paths[i])) {
@@ -273,83 +319,6 @@ export class PathExplorer {
 
 		return pathExplorer;
 	}
-
-	// /**
-	//  * Build a tree structure from `pathExplorer.path`. `pathExplorer` has also
-	//  * the configuration for the directory tree generation.
-	//  * @param pathExplorer The configuration for the directory tree generation.
-	//  * @returns The tree structure of the directory.
-	//  */
-	// buildDirectoryTree(pathExplorer: PathExplorerConfig): TreeNode[] {
-	// 	/**
-	// 	 * Traverse the directory structure starting from the given `currentPath`.
-	// 	 * The `ig` parameter is an instance of `Ignore` to check if the file/folder
-	// 	 * should be ignored. The `level` parameter is the current depth level in the
-	// 	 * directory structure. The `nFiles` parameter is the number of files processed
-	// 	 * so far. `pathExplorer` has the configuration that will be used to traverse
-	// 	 * the directory structure.
-	// 	 * @param currentPath The current path to traverse.
-	// 	 * @param ig The ignore instance to check if the file/folder should be ignored.
-	// 	 * @param level The current depth level in the directory structure.
-	// 	 * @param nFiles The number of files processed so far.
-	// 	 * @returns The tree structure of the directory.
-	// 	 */
-	// 	function traverse(
-	// 		currentPath: string,
-	// 		rootPath: string,
-	// 		ig: Ignore,
-	// 		level: number = 1,
-	// 		nFiles: number = 0
-	// 	): TreeNode[] {
-	// 		// If level exceeds the max depth, return.
-	// 		if (level > pathExplorer.maxDepth) return [];
-
-	// 		// Read the directory entries.
-	// 		const entries = fs.readdirSync(currentPath, {
-	// 			withFileTypes: true,
-	// 		});
-
-	// 		// Process files/folders in currentPath.
-	// 		const nodes: TreeNode[] = [];
-	// 		for (const entry of entries) {
-	// 			// If the number of files exceeds the limit, break.
-	// 			if (nFiles++ > pathExplorer.maxFiles) break;
-
-	// 			// Full path for current file/folder.
-	// 			const fullPath = path.join(currentPath, entry.name);
-	// 			// Relative path to current file/folder from pathExplorer's path.
-	// 			let relative = path.relative(rootPath, fullPath);
-	// 			// Add trailing slash for directories to work with ignore patterns.
-	// 			relative = entry.isDirectory() ? relative + "/" : relative;
-
-	// 			// Skip files/folders that are ignored but not unignored by patterns.
-	// 			const result = ig.test(relative);
-	// 			if (result.ignored && !result.unignored) continue;
-
-	// 			// Create a TreeNode for the current entry
-	// 			const node: TreeNode = {
-	// 				name: entry.name,
-	// 				path: fullPath,
-	// 				isDirectory: entry.isDirectory(),
-	// 				// by default, children is undefined, will see if it's a directory.
-	// 			};
-
-	// 			// If it's a directory and recursive mode is enabled, traverse it.
-	// 			if (entry.isDirectory() && pathExplorer.recursive)
-	// 				node.children = traverse(
-	// 					fullPath,
-	// 					rootPath,
-	// 					ig,
-	// 					level + 1,
-	// 					nFiles
-	// 				);
-
-	// 			nodes.push(node);
-	// 		}
-
-	// 		return nodes;
-	// 	}
-	// }
 
 	/**
 	 * Build a tree structure from `pathExplorer.path`. `pathExplorer` has also
@@ -395,8 +364,15 @@ export class PathExplorer {
 			}
 			nFiles++;
 
+			// Check if the path should be shown as absolute.
+			let showAbs = false;
+			if (pathExplorer.showAbsolutePath === ALL_PATHS) showAbs = true;
+			else if (pathExplorer.showAbsolutePath === ROOT_PATH && level === 0)
+				showAbs = true;
+			showAbs = isDirectory ? showAbs : false;
+
 			const node: TreeNode = {
-				name: path.basename(currentPath),
+				name: showAbs ? currentPath : path.basename(currentPath),
 				path: currentPath,
 				isDirectory: isDirectory,
 			};
