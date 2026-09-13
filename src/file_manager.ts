@@ -235,6 +235,8 @@ export class FileManager {
 	getFileExplorer(): FileExplorer | null {
 		const leaves = this.workspace.getLeavesOfType(FILE_EXPLORER_TYPE);
 		if (!leaves || leaves.length === 0) return null;
+		// Commands can run while the startup callback is loading the actual view.
+		if (leaves[0].isDeferred) return null;
 		return leaves[0].view as FileExplorer;
 	}
 

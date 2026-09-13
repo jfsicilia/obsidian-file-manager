@@ -3,7 +3,7 @@ import { Menu, TFile, TAbstractFile, Notice, Plugin, TFolder } from "obsidian";
 
 import { FileOrFolderItem, MockTree } from "obsidian-internals";
 
-import { FileManager, DIR_SEP } from "file_manager";
+import { FileManager, DIR_SEP, FILE_EXPLORER_TYPE } from "file_manager";
 
 import {
 	FileConflictOption,
@@ -281,7 +281,11 @@ export default class FileManagerPlugin extends Plugin {
 	 * Monkey patch fileExplorer.tree.selectItem and fileExplorer.tree.deselectItem to
 	 * update selected files/folders in status bar.
 	 */
-	patchFileExplorerSelectionFunctions() {
+	async patchFileExplorerSelectionFunctions() {
+		const leaf = this.app.workspace.getLeavesOfType(FILE_EXPLORER_TYPE)[0];
+		if (!leaf) return;
+		// Load the actual view before reading it; older Obsidian versions do not defer views.
+		await leaf.loadIfDeferred?.();
 		const fileExplorer = this.fm.getFileExplorer();
 		if (!fileExplorer) return;
 
@@ -317,7 +321,9 @@ export default class FileManagerPlugin extends Plugin {
 		// Monkey patch fileExplorer selection/deselection functions to update status
 		// bar on selection/deselection of files/folders.
 		this.app.workspace.onLayoutReady(() => {
-			this.patchFileExplorerSelectionFunctions();
+			this.patchFileExplorerSelectionFunctions().catch((error) => {
+				console.error("File Manager: failed to initialize file explorer selection", error);
+			});
 		});
 
 		this.registerStatusBarItems();
