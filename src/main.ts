@@ -198,6 +198,21 @@ export default class FileManagerPlugin extends Plugin {
 	}
 
 	/**
+	 * Helper function that checks if a file explorer leaf is present (even if
+	 * its view is still deferred/not loaded), if so a command (operation) can
+	 * run. Use this instead of `isFileExplorerAvailableCallback` for
+	 * operations that load the view themselves, e.g. via `focusPath`.
+	 */
+	isFileExplorerLeafPresentCallback(
+		checking: boolean,
+		operation: (...args: any[]) => any,
+		...args: any[]
+	): boolean {
+		const func = this.fm.isFileExplorerLeafPresent.bind(this.fm);
+		return this._checkCallback(checking, func, operation, ...args);
+	}
+
+	/**
 	 * Show the number of selected files/folders in the status bar.
 	 */
 	showSelectedInStatusBar() {
@@ -657,7 +672,7 @@ export default class FileManagerPlugin extends Plugin {
 			id: "go-to-in-file-explorer",
 			name: "Go to file or folder in file explorer",
 			checkCallback: (checking: boolean) =>
-				this.isFileExplorerAvailableCallback(checking, () => {
+				this.isFileExplorerLeafPresentCallback(checking, () => {
 					const allFilesAndFolders: TAbstractFile[] = [
 						...this.app.vault.getAllFolders(true),
 						...this.app.vault.getFiles(),
@@ -672,7 +687,7 @@ export default class FileManagerPlugin extends Plugin {
 						this.app,
 						allFilesAndFolders,
 						async (path: string) => {
-							this.fm.focusPath(path);
+							await this.fm.focusPath(path);
 						}
 					).open();
 				}),
@@ -682,7 +697,7 @@ export default class FileManagerPlugin extends Plugin {
 			id: "go-to-folder_in-file-explorer",
 			name: "Go to folder in file explorer",
 			checkCallback: (checking: boolean) =>
-				this.isFileExplorerAvailableCallback(checking, () => {
+				this.isFileExplorerLeafPresentCallback(checking, () => {
 					const allFolders = this.app.vault.getAllFolders(true);
 					// If available, add the parent folder of the active file
 					// to the beginning of the list.
@@ -694,7 +709,7 @@ export default class FileManagerPlugin extends Plugin {
 						this.app,
 						allFolders,
 						async (path: string) => {
-							this.fm.focusPath(path);
+							await this.fm.focusPath(path);
 						}
 					).open();
 				}),

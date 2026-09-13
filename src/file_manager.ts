@@ -342,6 +342,16 @@ export class FileManager {
 	}
 
 	/**
+	 * Returns if a file explorer leaf exists in the workspace, even if its
+	 * view hasn't been loaded yet (deferred). Use this instead of
+	 * `isFileExplorerAvailable` for operations that load the view themselves,
+	 * e.g. via `workspace.revealLeaf`.
+	 */
+	isFileExplorerLeafPresent(): boolean {
+		return this.workspace.getLeavesOfType(FILE_EXPLORER_TYPE).length > 0;
+	}
+
+	/**
 	 * Returns if the file explorer is currently active in the workspace.
 	 */
 	isFileExplorerActive(): boolean {
@@ -869,19 +879,21 @@ export class FileManager {
 	 * Focuses the file/folder in the file explorer with the specified `path`.
 	 * If the file/folder is a file, it will open it.
 	 */
-	focusPath(path: string) {
-		const { fileExplorer, activeFileOrFolder } =
-			this.getFileExplorerAndActiveFileOrFolder();
-		if (!fileExplorer || !activeFileOrFolder) return null;
+	async focusPath(path: string) {
+		const leaf = this.workspace.getLeavesOfType(FILE_EXPLORER_TYPE)[0];
+		if (!leaf) return;
 
-		const item = fileExplorer.fileItems[path];
+		// Un-collapses the sidebar if needed AND awaits the deferred-view load,
+		// so leaf.view is the real FileExplorer view (tree/fileItems), not a
+		// DeferredView.
+		await this.workspace.revealLeaf(leaf);
+
+		const fileExplorer = leaf.view as FileExplorer;
+		const item = fileExplorer.fileItems?.[path];
 		if (!item) return;
 
 		// Focus File Explorer.
-		this.workspace.setActiveLeaf(
-			this.workspace.getLeavesOfType(FILE_EXPLORER_TYPE)[0],
-			{ focus: true }
-		);
+		this.workspace.setActiveLeaf(leaf, { focus: true });
 		// Focus item in file explorer.
 		uncollapsePath(fileExplorer, path);
 		fileExplorer.tree.setFocusedItem(item, true);
