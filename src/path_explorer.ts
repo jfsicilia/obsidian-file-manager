@@ -3,7 +3,7 @@ import { MarkdownView, ButtonComponent, setIcon } from "obsidian";
 import FileManagerPlugin from "main";
 import { getVaultAbsolutePath } from "file_manager";
 import { openFile } from "open_with_cmd";
-import { promises as fsa } from "fs";
+import { promises as fsa, Dirent } from "fs";
 import ignore, { Ignore } from "ignore";
 import path from "path";
 import {
@@ -156,7 +156,7 @@ function appendCount(
 		appendCountNum(countEl, "|");
 	if (pathExplorer.recursiveCount)
 		appendCounts(countEl, node.totalFolderCount!, node.totalFileCount!);
-	appendCountNum(countEl, ")");
+	appendCountNum(countEl, ") ");
 }
 
 /**
@@ -478,12 +478,14 @@ export class PathExplorer {
 				}
 
 				if (pathExplorer.showCount) {
-					node.fileCount = node.children.filter(
-						(c) => !c.isDirectory
-					).length;
-					node.folderCount = node.children.filter(
-						(c) => c.isDirectory
-					).length;
+					const counts = countImmediate(
+						entries,
+						currentPath,
+						rootPath,
+						ig
+					);
+					node.fileCount = counts.files;
+					node.folderCount = counts.folders;
 				}
 
 				if (pathExplorer.recursiveCount) {
@@ -497,6 +499,40 @@ export class PathExplorer {
 				}
 			}
 			return node;
+		}
+
+		/**
+		 * Count files and folders immediately inside `currentPath`, given its
+		 * already-read `entries`, skipping entries matched by `ig`. Kept
+		 * separate from `node.children`: children are only added when their
+		 * own traverse() call survives the `maxDepth` cutoff, so deriving the
+		 * count from `node.children` would make a folder right at that
+		 * boundary always report an empty count even when it has content
+		 * (e.g. `max-depth 0` showing `(0📂 0📄)`).
+		 * @param entries The already-read directory entries of `currentPath`.
+		 * @param currentPath The directory these `entries` belong to.
+		 * @param rootPath The root path used to resolve ignore patterns.
+		 * @param ig The ignore instance to check if a file/folder should be ignored.
+		 */
+		function countImmediate(
+			entries: Dirent[],
+			currentPath: string,
+			rootPath: string,
+			ig: Ignore
+		): { files: number; folders: number } {
+			let files = 0;
+			let folders = 0;
+			for (const entry of entries) {
+				const fullPath = path.join(currentPath, entry.name);
+				const isDir = entry.isDirectory();
+				const relative =
+					path.relative(rootPath, fullPath) + (isDir ? "/" : "");
+				const test = ig.test(relative);
+				if (test.ignored && !test.unignored) continue;
+				if (isDir) folders++;
+				else files++;
+			}
+			return { files, folders };
 		}
 
 		/**
