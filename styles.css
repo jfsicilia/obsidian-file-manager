@@ -101,6 +101,18 @@ If your plugin does not need CSS, delete this file.
     stroke: var(--interactive-accent);
 }
 
+.path-explorer-count {
+    opacity: 0.7;
+}
+
+.path-explorer-count-num {
+    font-size: 0.85em;
+}
+
+.path-explorer-count-icon {
+    font-size: 0.65em;
+}
+
 .path-explorer-error {
     padding: 10px;
     background-color: var(--color-red);

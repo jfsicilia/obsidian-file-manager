@@ -1,6 +1,6 @@
 {
 	"name": "file-manager",
-	"version": "1.4.2",
+	"version": "1.5.0",
 	"description": "Adds missing features to the file explorer.",
 	"main": "main.js",
 	"scripts": {

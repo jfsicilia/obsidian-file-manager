@@ -1,6 +1,6 @@
 # File Manager Plugin for Obsidian
 
-This plugin enhances the Obsidian File Explorer by introducing essential file management features. It adds several new commands to interact with the `File Explorer`, allowing users to bind hotkeys for efficient keyboard-only file management. 
+This plugin enhances the Obsidian File Explorer by introducing essential file management features. It adds several new commands to interact with the `File Explorer`, allowing users to bind hotkeys for efficient keyboard-only file management.
 
 **Version 1.2**: Introduces the new [`pathexplorer`](#pathexplorer-codeblock) codeblock. See [details](#pathexplorer-codeblock) below.
 
@@ -8,44 +8,46 @@ This plugin enhances the Obsidian File Explorer by introducing essential file ma
 
 **Version 1.4**: Introduces `move note` and `go to folder` commands. `Pathexplorer` can show now absolute paths and you can use environment variables in the `paths`.
 
+**Version 1.5**: Introduces `show-count` and `show-count-recursive` options in path explorer. They allow to show the number of folders and files inside each folder, either immediate or recursive.
+
 ## Features
 
--   **Open With**: Open files or folders using custom commands.
--   **Create Subfolder**: Create a subfolder within the current folder.
--   **Create Folder**: Create a sibling folder.
--   **Create Note**: Create an empty note in the current folder.
--   **Duplicate**: Duplicate files or folders.
--   **Move**: Move selected files or folders to a new location.
--   **Copy**: Copy selected files or folders to a new location.
--   **Copy, Cut, Paste**: Copy or cut selected files or folders to the clipboard and paste them.
--   **Clear Clipboard**: Clear the clipboard contents.
--   **Toggle Selection**: Toggle the selection of a file or folder.
--   **Select All**: Select all files and folders.
--   **Invert Selection**: Invert the current selection.
--   **Deselect All**: Clear all selections.
--   **Rename**: Rename files or folders.
+- **Open With**: Open files or folders using custom commands.
+- **Create Subfolder**: Create a subfolder within the current folder.
+- **Create Folder**: Create a sibling folder.
+- **Create Note**: Create an empty note in the current folder.
+- **Duplicate**: Duplicate files or folders.
+- **Move**: Move selected files or folders to a new location.
+- **Copy**: Copy selected files or folders to a new location.
+- **Copy, Cut, Paste**: Copy or cut selected files or folders to the clipboard and paste them.
+- **Clear Clipboard**: Clear the clipboard contents.
+- **Toggle Selection**: Toggle the selection of a file or folder.
+- **Select All**: Select all files and folders.
+- **Invert Selection**: Invert the current selection.
+- **Deselect All**: Clear all selections.
+- **Rename**: Rename files or folders.
 
-*Version 1.1*
+_Version 1.1_
 
--   **Go to File/Folder**: Locate and focus on a file or folder in the file explorer.
--   **Open file/folder with...**: Open file or folder in the file explorer with custom program.
+- **Go to File/Folder**: Locate and focus on a file or folder in the file explorer.
+- **Open file/folder with...**: Open file or folder in the file explorer with custom program.
 
-*Version 1.2*
+_Version 1.2_
 
--   **`pathexplorer` codeblock**: Display files and folders from specified paths and open them using custom commands.
+- **`pathexplorer` codeblock**: Display files and folders from specified paths and open them using custom commands.
 
-*Version 1.4*
+_Version 1.4_
 
--   **Move note**: Move active note to a new location.
--   **Go to Folder**: Locate and focus on a folder in the file explorer.
+- **Move note**: Move active note to a new location.
+- **Go to Folder**: Locate and focus on a folder in the file explorer.
 
 ### Copy/Move Conflict Resolution
 
 When file conflicts occur, choose from the following resolution methods:
 
--   **Overwrite**: Replace the existing file or folder.
--   **Skip**: Ignore the conflicting file or folder.
--   **Keep**: Retain both files by renaming the new one.
+- **Overwrite**: Replace the existing file or folder.
+- **Skip**: Ignore the conflicting file or folder.
+- **Keep**: Retain both files by renaming the new one.
 
 ## Usage
 
@@ -53,43 +55,42 @@ When file conflicts occur, choose from the following resolution methods:
 
 > **NOTE**: These commands are available only when the `File Explorer` panel is focused.
 
--   `File Manager: Create a subfolder within the focused or active file/folder`.
--   `File Manager: Create a folder as sibling of the focused or active file/folder`.
--   `File Manager: Create a note within the focused or active folder`.
--   `File Manager: Duplicate focused or active file/folder`,
--   `File Manager: Copy selected files/folders to clipboard`,
--   `File Manager: Cut selected files/folders to clipboard`,
--   `File Manager: Paste files/folders from clipboard to selected folder`,
--   `File Manager: Clear clipboard`,
--   `File Manager: Move selected files/folders to a new folder`.
--   `File Manager: Copy selected files/folders to a new folder`.
--   `File Manager: Select all siblings and children of the focused or active file/folder`.
--   `File Manager: Toggle selection of the focused or active file/folder`.
--   `File Manager: Clear selection`.
--   `File Manager: Invert selection`.
--   `File Manager: Rename focused or active file/folder`.
+- `File Manager: Create a subfolder within the focused or active file/folder`.
+- `File Manager: Create a folder as sibling of the focused or active file/folder`.
+- `File Manager: Create a note within the focused or active folder`.
+- `File Manager: Duplicate focused or active file/folder`,
+- `File Manager: Copy selected files/folders to clipboard`,
+- `File Manager: Cut selected files/folders to clipboard`,
+- `File Manager: Paste files/folders from clipboard to selected folder`,
+- `File Manager: Clear clipboard`,
+- `File Manager: Move selected files/folders to a new folder`.
+- `File Manager: Copy selected files/folders to a new folder`.
+- `File Manager: Select all siblings and children of the focused or active file/folder`.
+- `File Manager: Toggle selection of the focused or active file/folder`.
+- `File Manager: Clear selection`.
+- `File Manager: Invert selection`.
+- `File Manager: Rename focused or active file/folder`.
 
-*Version 1.1*
+_Version 1.1_
 
--   `File Manager: Go to file or folder in file explorer`.
--   `File Manager: Open with <command>`.
+- `File Manager: Go to file or folder in file explorer`.
+- `File Manager: Open with <command>`.
 
-*Version 1.4*
+_Version 1.4_
 
--   `File Manager: Move active note to a new folder`.
--   `File Manager: Go to folder in file explorer`.
-
+- `File Manager: Move active note to a new folder`.
+- `File Manager: Go to folder in file explorer`.
 
 #### Global Commands
 
 > **NOTE**: The following commands are available if a file explorer exists in Obsidian.
 
--   `File Manager: Go to file or folder in file explorer`.
--   `File Manager: Go to folder in file explorer`.
+- `File Manager: Go to file or folder in file explorer`.
+- `File Manager: Go to folder in file explorer`.
 
 > **NOTE**: This command is globally available. If the file explorer is active, the focused or selected file/folder will be used for the `Open With` command. Otherwise, the currently active document will be used.
 
--   `File Manager: Open with ...`
+- `File Manager: Open with ...`
 
 ### Open with...
 
@@ -114,7 +115,7 @@ path $HOME/dev/dump_shortcuts
 path c:\tools\obsidian
 path %USERPROFILE%\projects
 
-# If present include dump_shortcuts as root of files and folders. 
+# If present include dump_shortcuts as root of files and folders.
 include-root
 
 # Use .gitignore syntax to ignore files/folders.
@@ -133,7 +134,7 @@ ignore *.spec
 max-depth 3
 
 # Define max-files (default 100)
-max-files 20 
+max-files 20
 ```
 ````
 
@@ -143,18 +144,18 @@ Will render the following output in reader mode:
 
 #### `pathexplorer` codeblock syntax.
 
-> **#** 
-> 
+> **#**
+>
 > For line comments
-> 
+>
 > **path \<relative or absolute path\>**
 >
-> *Version 1.4*
+> _Version 1.4_
 >
 > Now you can use environment variables in the path. The Linux/Mac format (`$<var>`) and the Windows format (`%<var>%`) can be used interchangeably. On Windows, the `HOME` environment variable will be translated to `USERPROFILE` if it does not exist.
-> 
+>
 > Specify paths to explore. Multiple paths can be defined, one per line.
-> 
+>
 > **include-root**
 >
 > Include the root folder as the parent of its children.
@@ -169,7 +170,7 @@ Will render the following output in reader mode:
 >
 > **ignore**
 >
-> Ignore files/folders using `.gitignore` patterns. Inverted patterns (`!<pattern>`) are also supported.  Multiple ignore patterns can be defined, one per line.
+> Ignore files/folders using `.gitignore` patterns. Inverted patterns (`!<pattern>`) are also supported. Multiple ignore patterns can be defined, one per line.
 >
 > **flat [\<none\> | hide-files | hide-folders]**
 >
@@ -179,12 +180,23 @@ Will render the following output in reader mode:
 >
 > Hide command icons next to files/folders.
 >
-> *Version 1.4*
+> _Version 1.4_
 >
 > **absolute-path [\<none\> | all | root]**
 >
 > Display absolute path on folders. By default `none` is used (no absolute paths). `all` flag shows absolute path in every folder. `root` flag show absolute path in root folder.
-
+>
+> _Version 1.5_
+>
+> **show-count**
+>
+> Show, next to each folder name, the number of folders 📂 and files 📄 immediately inside it, e.g. `Music (2📂10📄)`.
+>
+> **show-count-recursive**
+>
+> Show, next to each folder name, the total number of folders/files nested at any depth inside it, e.g. `Music (12📂22📄)`. Note this scans the whole subtree on every render, so it can be slow on very large or deeply nested folders.
+>
+> If both `show-count` and `show-count-recursive` are present, both counts are shown side by side, separated by `|`, e.g. `Music (2📂10📄|12📂22📄)` (immediate|total).
 
 Create custom patterns in the settings tab.
 
@@ -220,14 +232,13 @@ This plugin is licensed under the MIT License.
 
 ## Roadmap
 
--   Add **merge** functionality for folder copy/move.
--   Auto-select files in the destination after copying/moving.
--   Add **sorting** customization to `pathexplorer` codeblock.
+- Add **merge** functionality for folder copy/move.
+- Auto-select files in the destination after copying/moving.
+- Add **sorting** customization to `pathexplorer` codeblock.
 
 ## Acknowledgments
 
 This plugin was inspired by the following plugins. Thanks to their developers:
 
--   [Obsidian Open With](https://github.com/phibr0/obsidian-open-with)
--   [Obsidian File Explorer Count](https://github.com/ozntel/file-explorer-note-count)
-
+- [Obsidian Open With](https://github.com/phibr0/obsidian-open-with)
+- [Obsidian File Explorer Count](https://github.com/ozntel/file-explorer-note-count)

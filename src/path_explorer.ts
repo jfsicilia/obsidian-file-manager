@@ -23,6 +23,14 @@ interface TreeNode {
 	isDirectory: boolean;
 	// Children nodes if it's a directory.
 	children?: TreeNode[];
+	// Number of files/folders immediately inside this directory. Only set
+	// for directories when showCount is enabled.
+	fileCount?: number;
+	folderCount?: number;
+	// Total number of files/folders nested (at any depth) inside this
+	// directory. Only set for directories when recursiveCount is enabled.
+	totalFileCount?: number;
+	totalFolderCount?: number;
 }
 
 // Constants for the pathexplorer codeblock.
@@ -58,6 +66,13 @@ interface PathExplorerConfig {
 	hideIcons: boolean;
 	// Show absolute path in the tree.
 	showAbsolutePath: typeof ALL_PATHS | typeof ROOT_PATH | typeof NO_PATH;
+	// If true, show the number of files/folders immediately inside each folder.
+	showCount: boolean;
+	// If true, show the total number of files/folders nested (at any depth)
+	// inside each folder. Independent of showCount: if both are set, both
+	// counts are shown side by side; if only this one is set, only the
+	// recursive total is shown.
+	recursiveCount: boolean;
 }
 
 // Default configuration for the pathexplorer codeblock.
@@ -72,6 +87,8 @@ const DEFAULT_CONFIG: PathExplorerConfig = {
 	hideFolders: false,
 	hideIcons: false,
 	showAbsolutePath: NO_PATH,
+	showCount: false,
+	recursiveCount: false,
 };
 
 // If a line in a pathexplorer codeblock starts with COMMENT_TOKEN, it's ignored.
@@ -92,6 +109,55 @@ const INCLUDE_ROOT_PARAM = "include-root";
 const FLAT_PARAM = "flat";
 const HIDE_ICONS_PARAM = "hide-icons";
 const ABSOLUTE_PATH = "absolute-path";
+const SHOW_COUNT_PARAM = "show-count";
+const SHOW_COUNT_RECURSIVE_PARAM = "show-count-recursive";
+
+/**
+ * Append the file/folder count (e.g. `(2📂10📄)`) to the given list item
+ * `li` for the given folder `node`, according to `pathExplorer`'s
+ * `showCount`/`recursiveCount` configuration. If both are set, immediate
+ * and recursive counts are shown side by side, separated by `|`. Does
+ * nothing if neither is enabled, or if `node` is not a directory.
+ * @param li The list item element for the folder.
+ * @param node The folder node to show the count for.
+ * @param pathExplorer The configuration for the pathexplorer codeblock.
+ */
+function appendCount(
+	li: HTMLElement,
+	node: TreeNode,
+	pathExplorer: PathExplorerConfig
+) {
+	if (!pathExplorer.showCount && !pathExplorer.recursiveCount) return;
+	if (!node.isDirectory) return;
+
+	const appendCountNum = (container: HTMLElement, text: string) =>
+		container.createSpan({ cls: "path-explorer-count-num", text });
+	const appendCountIcon = (container: HTMLElement, icon: string) =>
+		container.createSpan({
+			cls: "path-explorer-count-icon",
+			text: icon,
+		});
+	const appendCounts = (
+		container: HTMLElement,
+		folders: number,
+		files: number
+	) => {
+		appendCountNum(container, `${folders}`);
+		appendCountIcon(container, "📂");
+		appendCountNum(container, `${files}`);
+		appendCountIcon(container, "📄");
+	};
+
+	const countEl = li.createSpan({ cls: "path-explorer-count" });
+	appendCountNum(countEl, "(");
+	if (pathExplorer.showCount)
+		appendCounts(countEl, node.folderCount!, node.fileCount!);
+	if (pathExplorer.showCount && pathExplorer.recursiveCount)
+		appendCountNum(countEl, "|");
+	if (pathExplorer.recursiveCount)
+		appendCounts(countEl, node.totalFolderCount!, node.totalFileCount!);
+	appendCountNum(countEl, ")");
+}
 
 /**
  * Exception class for PathExplorer. Used if any error comes up when parsing
@@ -253,6 +319,22 @@ export class PathExplorer {
 						);
 					break;
 
+				case SHOW_COUNT_PARAM:
+					pathExplorer.showCount = true;
+					if (value)
+						throw new PathExplorerException(
+							`No value expected for ${SHOW_COUNT_PARAM}.`
+						);
+					break;
+
+				case SHOW_COUNT_RECURSIVE_PARAM:
+					pathExplorer.recursiveCount = true;
+					if (value)
+						throw new PathExplorerException(
+							`No value expected for ${SHOW_COUNT_RECURSIVE_PARAM}.`
+						);
+					break;
+
 				case ABSOLUTE_PATH:
 					if (value === ALL_PATHS)
 						pathExplorer.showAbsolutePath = ALL_PATHS;
@@ -394,8 +476,67 @@ export class PathExplorer {
 					);
 					if (child) node.children.push(child);
 				}
+
+				if (pathExplorer.showCount) {
+					node.fileCount = node.children.filter(
+						(c) => !c.isDirectory
+					).length;
+					node.folderCount = node.children.filter(
+						(c) => c.isDirectory
+					).length;
+				}
+
+				if (pathExplorer.recursiveCount) {
+					const totals = await countRecursive(
+						currentPath,
+						rootPath,
+						ig
+					);
+					node.totalFileCount = totals.files;
+					node.totalFolderCount = totals.folders;
+				}
 			}
 			return node;
+		}
+
+		/**
+		 * Recursively count files and folders nested (at any depth) inside
+		 * `dirPath`, skipping entries matched by `ig`. Unlike `traverse`,
+		 * this is not limited by `maxDepth`/`maxFiles`: it's only used to
+		 * compute `show-count-recursive` totals, independent of what is
+		 * actually rendered in the tree.
+		 * @param dirPath The directory to count files/folders inside.
+		 * @param rootPath The root path used to resolve ignore patterns.
+		 * @param ig The ignore instance to check if a file/folder should be ignored.
+		 */
+		async function countRecursive(
+			dirPath: string,
+			rootPath: string,
+			ig: Ignore
+		): Promise<{ files: number; folders: number }> {
+			let files = 0;
+			let folders = 0;
+			const entries = await fsa.readdir(dirPath, {
+				withFileTypes: true,
+			});
+			for (const entry of entries) {
+				const fullPath = path.join(dirPath, entry.name);
+				const isDir = entry.isDirectory();
+				const relative =
+					path.relative(rootPath, fullPath) + (isDir ? "/" : "");
+				const test = ig.test(relative);
+				if (test.ignored && !test.unignored) continue;
+
+				if (isDir) {
+					folders++;
+					const sub = await countRecursive(fullPath, rootPath, ig);
+					files += sub.files;
+					folders += sub.folders;
+				} else {
+					files++;
+				}
+			}
+			return { files, folders };
 		}
 
 		// Count of files/folders traversed so far.
@@ -463,6 +604,9 @@ export class PathExplorer {
 					cls: "external-link",
 					text: node.name,
 				});
+
+				appendCount(li, node, pathExplorer);
+
 				if (pathExplorer.hideIcons) return li;
 
 				// Check if the node matches any Open with... pattern.
